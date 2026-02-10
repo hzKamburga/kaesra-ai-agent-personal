@@ -1,0 +1,324 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kaesra Agent</title>
+    <style>
+      :root {
+        --bg: #081022;
+        --panel: #0f172a;
+        --panel-2: #111827;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --border: #334155;
+        --accent: #2563eb;
+        --success: #16a34a;
+        --danger: #b91c1c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        width: 420px;
+        min-height: 640px;
+        background: radial-gradient(circle at top, #18243d 0%, #060c19 70%);
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+
+      .app {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .header {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.85), rgba(2, 6, 23, 0.9));
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .title {
+        display: grid;
+        gap: 2px;
+      }
+
+      .title strong {
+        font-size: 14px;
+      }
+
+      .title span {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #475569;
+      }
+
+      .dot.online {
+        background: var(--success);
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.92));
+      }
+
+      .chat-card {
+        display: grid;
+        grid-template-rows: 1fr auto auto;
+        min-height: 320px;
+        overflow: hidden;
+      }
+
+      .chat-feed {
+        padding: 10px;
+        max-height: 320px;
+        overflow: auto;
+        display: grid;
+        gap: 8px;
+      }
+
+      .bubble {
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 12px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid var(--border);
+      }
+
+      .bubble.user {
+        background: rgba(37, 99, 235, 0.25);
+        justify-self: end;
+        max-width: 88%;
+      }
+
+      .bubble.agent {
+        background: rgba(15, 118, 110, 0.28);
+        justify-self: start;
+        max-width: 92%;
+      }
+
+      .bubble.system {
+        background: rgba(100, 116, 139, 0.2);
+        color: var(--muted);
+        justify-self: center;
+        max-width: 95%;
+      }
+
+      .chat-actions {
+        padding: 8px 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        border-top: 1px solid rgba(51, 65, 85, 0.5);
+      }
+
+      .chat-bar {
+        padding: 8px;
+        border-top: 1px solid rgba(51, 65, 85, 0.5);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+      }
+
+      input,
+      textarea,
+      select,
+      button {
+        font: inherit;
+      }
+
+      input,
+      textarea,
+      select {
+        background: #0b1220;
+        color: var(--text);
+        border: 1px solid #475569;
+        border-radius: 8px;
+        padding: 8px;
+      }
+
+      textarea {
+        min-height: 65px;
+        resize: vertical;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        color: #fff;
+        background: var(--accent);
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #334155;
+      }
+
+      button.success {
+        background: var(--success);
+      }
+
+      button.danger {
+        background: var(--danger);
+      }
+
+      details {
+        overflow: hidden;
+      }
+
+      summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 10px;
+        font-size: 12px;
+        color: #cbd5e1;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      }
+
+      details[open] summary {
+        background: rgba(15, 23, 42, 0.55);
+      }
+
+      .section {
+        padding: 10px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .tasks {
+        max-height: 150px;
+        overflow: auto;
+        display: grid;
+        gap: 6px;
+      }
+
+      .task {
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 6px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .task small {
+        color: var(--muted);
+      }
+
+      #installedApps {
+        min-height: 110px;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="header">
+        <div class="title">
+          <strong>Kaesra Agent Console</strong>
+          <span>AI -> Bridge -> Chrome kontrol paneli</span>
+        </div>
+        <div class="status">
+          <span id="statusDot" class="dot"></span>
+          <span id="statusText">offline</span>
+        </div>
+      </div>
+
+      <div class="card chat-card">
+        <div id="chatFeed" class="chat-feed"></div>
+
+        <div class="chat-actions">
+          <button id="summarizeTab" class="secondary">Aktif Sekmeyi Ozetle</button>
+          <button id="checkBridge" class="secondary">Baglanti Testi</button>
+        </div>
+
+        <form id="chatForm" class="chat-bar">
+          <input id="chatInput" placeholder="Ajan komutu yaz..." autocomplete="off" />
+          <button type="submit">Gonder</button>
+        </form>
+      </div>
+
+      <details class="card">
+        <summary>Bridge ve Izin Ayarlari</summary>
+        <div class="section">
+          <input id="baseUrl" placeholder="http://127.0.0.1:3434" />
+          <input id="apiToken" placeholder="API Token (opsiyonel)" />
+          <div class="row">
+            <button id="saveSettings" class="secondary">Ayarlari Kaydet</button>
+            <button id="clearApprovals" class="danger">Izinleri Temizle</button>
+          </div>
+          <div id="approvalInfo" class="muted">Kayitli izin kurali: -</div>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Gorev Planlayici</summary>
+        <div class="section">
+          <input id="taskName" placeholder="Gorev adi" />
+          <textarea id="taskPrompt" placeholder="Ajan bu promptu calistiracak"></textarea>
+          <div class="row">
+            <input id="runAt" placeholder="runAt (ISO)" />
+            <input id="intervalMs" placeholder="intervalMs" />
+          </div>
+          <div class="row">
+            <button id="createTask">Gorev Olustur</button>
+            <button id="refreshTasks" class="secondary">Yenile</button>
+          </div>
+          <div id="tasks" class="tasks"></div>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Program Yonetimi</summary>
+        <div class="section">
+          <input id="openTarget" placeholder="ornek: Chrome veya notepad.exe" />
+          <div class="row">
+            <button id="openApp" class="secondary">Calistir</button>
+            <button id="refreshApps" class="secondary">Listele</button>
+          </div>
+          <input id="appQuery" placeholder="program ara (opsiyonel)" />
+          <select id="installedApps" size="6"></select>
+          <button id="openSelectedApp" class="success">Secili Programi Ac</button>
+        </div>
+      </details>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

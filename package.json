@@ -1,0 +1,36 @@
+{
+  "name": "kaesra-ai-agent",
+  "version": "1.0.0",
+  "description": "Moduler Node.js AI agent for research, browser automation, project generation, and API orchestration",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "kaesra-agent": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "ui": "node src/index.js ui",
+    "chat": "node src/index.js chat",
+    "research": "node src/index.js research",
+    "browse": "node src/index.js browse",
+    "project": "node src/index.js project",
+    "api": "node src/index.js api",
+    "chrome": "node src/index.js chrome",
+    "desktop": "node src/index.js desktop",
+    "bridge": "node src/index.js bridge",
+    "task": "node src/index.js task",
+    "check": "node --check src/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.63.0",
+    "cheerio": "^1.1.2",
+    "commander": "^14.0.1",
+    "dotenv": "^17.2.3",
+    "openai": "^6.7.0",
+    "playwright": "^1.55.0",
+    "zod": "^4.1.12"
+  }
+}

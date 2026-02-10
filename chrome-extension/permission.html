@@ -1,0 +1,167 @@
+﻿<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kaesra Izin Istegi</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #111827;
+        --border: #334155;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --primary: #2563eb;
+        --warn: #b91c1c;
+        --ok: #16a34a;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #1f2937 0%, #0b1220 68%);
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        display: grid;
+        place-items: center;
+        padding: 16px;
+      }
+
+      .card {
+        width: min(520px, 100%);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.95));
+        padding: 16px;
+        display: grid;
+        gap: 10px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .box {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(2, 6, 23, 0.55);
+        padding: 10px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .label {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .value {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .allow {
+        background: var(--ok);
+      }
+
+      .deny {
+        background: var(--warn);
+      }
+
+      .secondary {
+        background: #334155;
+      }
+
+      .controls {
+        display: grid;
+        gap: 8px;
+      }
+
+      select {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #0f172a;
+        color: var(--text);
+        padding: 8px;
+      }
+
+      #status {
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Chrome Komut Izni</h1>
+      <div class="meta">Ajan bu komutu calistirmak istiyor. Onay verirsen komut orijinal Chrome sekmende calisacak.</div>
+
+      <div class="box">
+        <div class="label">Aksiyon</div>
+        <div class="value" id="action">-</div>
+      </div>
+
+      <div class="box">
+        <div class="label">Hedef Domain</div>
+        <div class="value" id="host">-</div>
+      </div>
+
+      <div class="box">
+        <div class="label">Ozet</div>
+        <div class="value" id="summary">-</div>
+      </div>
+
+      <div class="box">
+        <div class="label">Komut Verisi</div>
+        <div class="value" id="input">-</div>
+      </div>
+
+      <div class="controls">
+        <label for="scope">Bir daha sorma kapsami</label>
+        <select id="scope">
+          <option value="domain">Sadece bu domain + aksiyon</option>
+          <option value="global">Tum domainler + bu aksiyon</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <button id="allowOnce" class="allow">Izin Ver (Bu Kez)</button>
+        <button id="allowAlways" class="secondary">Izin Ver + Bir Daha Sorma</button>
+      </div>
+
+      <div class="row">
+        <button id="denyOnce" class="deny">Reddet (Bu Kez)</button>
+        <button id="denyAlways" class="secondary">Reddet + Bir Daha Sorma</button>
+      </div>
+
+      <div id="status">Bekleniyor...</div>
+    </div>
+
+    <script type="module" src="permission.js"></script>
+  </body>
+</html>

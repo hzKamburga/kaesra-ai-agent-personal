@@ -1,0 +1,29 @@
+﻿{
+  "manifest_version": 3,
+  "name": "Kaesra Agent Bridge",
+  "description": "Chrome extension for controlling local Kaesra AI Agent bridge.",
+  "version": "1.0.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "windows",
+    "contextMenus",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://*/*",
+    "http://*/*"
+  ],
+  "action": {
+    "default_title": "Kaesra Agent",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}

@@ -1,0 +1,17 @@
+﻿[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{PROJECT_NAME}}"
+version = "0.1.0"
+description = "{{PROJECT_DESCRIPTION}}"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "rich>=13.7.0",
+  "textual>=0.70.0"
+]
+
+[project.scripts]
+{{PROJECT_NAME}} = "main:main"

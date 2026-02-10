@@ -1,0 +1,17 @@
+﻿[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "casino-sim"
+version = "0.1.0"
+description = "Python-based casino simulation with slot machine, roulette, and blackjack mini-games, CLI interface, and persistent user balance via JSON."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "rich>=13.7.0",
+  "textual>=0.70.0"
+]
+
+[project.scripts]
+casino-sim = "main:main"

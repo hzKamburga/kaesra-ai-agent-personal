@@ -1,5 +1,8 @@
 ﻿# Kaesra AI Agent (Node.js)
 
+[![GitHub](https://img.shields.io/github/license/hzKamburga/kaesra-ai-agent-personal)](https://github.com/hzKamburga/kaesra-ai-agent-personal)
+[![GitHub Repo](https://img.shields.io/github/stars/hzKamburga/kaesra-ai-agent-personal?style=social)](https://github.com/hzKamburga/kaesra-ai-agent-personal)
+
 Cok amacli bir Node.js AI agent iskeleti:
 
 - Web arastirma (Tavily / SerpAPI / DuckDuckGo fallback)

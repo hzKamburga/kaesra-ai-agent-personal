@@ -1,5 +1,6 @@
 import readline from "node:readline/promises";
 import { cwd, stdin as input, stdout as output } from "node:process";
+import { config } from "../core/config.js";
 import { AssistantAgent } from "../agent/assistantAgent.js";
 import { createToolRegistry } from "../tools/index.js";
 import { runResearchCommand } from "./researchCommand.js";
@@ -8,367 +9,399 @@ import { runChromeCommand } from "./chromeCommand.js";
 import { runDesktopCommand } from "./desktopCommand.js";
 import { runTaskCommand } from "./taskCommand.js";
 
-const MAIN_MENU = [
-  "AI Ask (tek prompt)",
-  "AI Chat (session)",
-  "Research",
-  "Task Merkezi",
-  "Chrome Quick",
-  "Desktop Quick",
-  "API Quick",
-  "Tools Listesi",
-  "Cikis"
-];
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — Premium Terminal Colors & Utilities
+   ═══════════════════════════════════════════════════════════════ */
 
 const ANSI = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
   dim: "\x1b[2m",
-  accent: "\x1b[38;5;215m",
-  accentSoft: "\x1b[38;5;179m",
-  text: "\x1b[38;5;252m",
-  muted: "\x1b[38;5;244m",
-  ok: "\x1b[38;5;114m",
-  warn: "\x1b[38;5;221m",
-  err: "\x1b[38;5;203m",
-  link: "\x1b[38;5;117m",
-  panel: "\x1b[38;5;240m"
+  italic: "\x1b[3m",
+  underline: "\x1b[4m",
+  blink: "\x1b[5m",
+  inverse: "\x1b[7m",
+  strikethrough: "\x1b[9m",
+
+  // Brand palette
+  blue: "\x1b[38;2;91;164;245m",
+  purple: "\x1b[38;2;167;139;250m",
+  pink: "\x1b[38;2;244;114;182m",
+  cyan: "\x1b[38;2;34;211;238m",
+  green: "\x1b[38;2;52;211;153m",
+  amber: "\x1b[38;2;251;191;36m",
+  red: "\x1b[38;2;248;113;113m",
+  orange: "\x1b[38;2;251;146;60m",
+
+  // Text hierarchy
+  text: "\x1b[38;2;232;236;244m",
+  secondary: "\x1b[38;2;148;163;184m",
+  muted: "\x1b[38;2;100;116;139m",
+  faint: "\x1b[38;2;71;85;105m",
+
+  // Backgrounds
+  bgCard: "\x1b[48;2;22;29;46m",
+  bgHighlight: "\x1b[48;2;30;40;64m",
+  bgSuccess: "\x1b[48;2;16;40;32m",
+  bgError: "\x1b[48;2;48;16;16m",
+  bgInfo: "\x1b[48;2;16;28;52m"
 };
 
 const ANSI_REGEX = /\x1b\[[0-9;]*m/g;
 
-function paint(text, ...styles) {
-  const content = String(text ?? "");
-  if (!styles.length) {
-    return content;
-  }
-  const prefix = styles.map((name) => ANSI[name] || "").join("");
-  return `${prefix}${content}${ANSI.reset}`;
+const MAIN_MENU = [
+  { label: "AI Ask", icon: "🧠", desc: "Tek prompt, tool-calling" },
+  { label: "AI Chat", icon: "💬", desc: "Çok turlu sohbet" },
+  { label: "Research", icon: "🔬", desc: "Web araştırması" },
+  { label: "Task Merkezi", icon: "📋", desc: "Görev yönetimi" },
+  { label: "Chrome Bridge", icon: "🌐", desc: "Extension bridge" },
+  { label: "Desktop Apps", icon: "🖥️", desc: "Uygulama yönetimi" },
+  { label: "API Quick", icon: "⚡", desc: "HTTP çağrısı" },
+  { label: "Araç Listesi", icon: "🔧", desc: "Tool kataloğu" },
+  { label: "Çıkış", icon: "🚪", desc: "" }
+];
+
+/* ═══════════════════════════════════════════════════════
+   RENDERING UTILITIES
+   ═══════════════════════════════════════════════════════ */
+
+function paint(value, ...styles) {
+  const text = String(value ?? "");
+  if (!styles.length) return text;
+  const prefix = styles.map((s) => ANSI[s] || "").join("");
+  return `${prefix}${text}${ANSI.reset}`;
 }
 
 function stripAnsi(value) {
   return String(value ?? "").replace(ANSI_REGEX, "");
 }
 
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function termWidth() {
-  return clamp(Number(output.columns || 120), 90, 160);
+  return clamp(Number(output.columns || 120), 80, 180);
 }
 
-function padRightAnsi(value, width) {
+function gradientText(value) {
   const text = String(value ?? "");
-  const visible = stripAnsi(text).length;
-  if (visible >= width) {
-    return text;
+  const colors = [
+    [91, 164, 245],   // blue
+    [130, 152, 250],   // blue-purple
+    [167, 139, 250],   // purple
+    [200, 128, 220],   // purple-pink
+    [244, 114, 182]    // pink
+  ];
+  const len = Math.max(1, text.length - 1);
+  let out = "";
+
+  for (let i = 0; i < text.length; i++) {
+    const t = i / len;
+    const segLen = colors.length - 1;
+    const segIndex = Math.min(Math.floor(t * segLen), segLen - 1);
+    const segT = (t * segLen) - segIndex;
+    const c0 = colors[segIndex];
+    const c1 = colors[segIndex + 1];
+    const r = Math.round(c0[0] + (c1[0] - c0[0]) * segT);
+    const g = Math.round(c0[1] + (c1[1] - c0[1]) * segT);
+    const b = Math.round(c0[2] + (c1[2] - c0[2]) * segT);
+    out += `\x1b[38;2;${r};${g};${b}m${text[i]}`;
   }
+
+  return `${out}${ANSI.reset}`;
+}
+
+function padAnsi(text, width) {
+  const visible = stripAnsi(text).length;
+  if (visible >= width) return text;
   return `${text}${" ".repeat(width - visible)}`;
 }
 
-function hardWrapLine(text, width) {
-  if (!text) {
-    return [""];
-  }
+function centerAnsi(text, width) {
+  const visible = stripAnsi(text).length;
+  if (visible >= width) return text;
+  const left = Math.floor((width - visible) / 2);
+  const right = width - visible - left;
+  return `${" ".repeat(left)}${text}${" ".repeat(right)}`;
+}
 
-  const words = String(text).split(/\s+/).filter(Boolean);
-  if (!words.length) {
-    return [""];
-  }
-
+function wrapText(value, width) {
   const lines = [];
-  let current = "";
+  const rawLines = String(value ?? "").split(/\r?\n/);
 
-  for (const word of words) {
-    if (!current) {
-      if (word.length <= width) {
+  for (const rawLine of rawLines) {
+    const words = rawLine.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines.push("");
+      continue;
+    }
+
+    let current = "";
+    for (const word of words) {
+      if (!current) {
         current = word;
-      } else {
-        let cursor = word;
-        while (cursor.length > width) {
-          lines.push(cursor.slice(0, width));
-          cursor = cursor.slice(width);
-        }
-        current = cursor;
+        continue;
       }
-      continue;
-    }
 
-    const candidate = `${current} ${word}`;
-    if (candidate.length <= width) {
-      current = candidate;
-      continue;
+      const candidate = `${current} ${word}`;
+      if (candidate.length <= width) {
+        current = candidate;
+      } else {
+        lines.push(current);
+        current = word;
+      }
     }
-
-    lines.push(current);
-    if (word.length <= width) {
-      current = word;
-      continue;
-    }
-
-    let cursor = word;
-    while (cursor.length > width) {
-      lines.push(cursor.slice(0, width));
-      cursor = cursor.slice(width);
-    }
-    current = cursor;
-  }
-
-  if (current) {
-    lines.push(current);
+    if (current) lines.push(current);
   }
 
   return lines.length ? lines : [""];
 }
 
-function wrapText(value, width) {
-  const text = String(value ?? "");
-  const rawLines = text.split(/\r?\n/);
-  const wrapped = [];
-
-  for (const line of rawLines) {
-    wrapped.push(...hardWrapLine(line, width));
-  }
-
-  return wrapped.length ? wrapped : [""];
+function shortText(value, max = 140) {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(0, max - 3))}...`;
 }
 
-function boxTop(width, title = "") {
-  if (!title) {
-    return `+${"-".repeat(width - 2)}+`;
-  }
+/* ═══════════════════════════════════════════════════════
+   VISUAL COMPONENTS
+   ═══════════════════════════════════════════════════════ */
 
-  const rawTitle = ` ${title} `;
-  const inner = Math.max(0, width - 2);
-  if (rawTitle.length >= inner) {
-    return `+${rawTitle.slice(0, inner)}+`;
-  }
+const LOGO = [
+  " ╦╔═  ╔═╗  ╔═╗  ╔═╗  ╦═╗  ╔═╗ ",
+  " ╠╩╗  ╠═╣  ║╣   ╚═╗  ╠╦╝  ╠═╣ ",
+  " ╩ ╩  ╩ ╩  ╚═╝  ╚═╝  ╩╚═  ╩ ╩ "
+];
 
-  const remaining = inner - rawTitle.length;
-  const left = Math.floor(remaining / 2);
-  const right = remaining - left;
-  return `+${"-".repeat(left)}${rawTitle}${"-".repeat(right)}+`;
+const LOGO_DETAIL = [
+  " _  __    _    _____ ____  ____      _",
+  "| |/ /   / \\   | ____/ ___||  _ \\    / \\",
+  "| ' /   / _ \\  |  _| \\___ \\| |_) |  / _ \\",
+  "| . \\  / ___ \\ | |___ ___) |  _ <  / ___ \\",
+  "|_|\\_\\/_/   \\_\\_____|____/|_| \\_\\/_/   \\_\\"
+];
+
+function printDivider(char = "─", color = "faint") {
+  const w = termWidth();
+  console.log(paint(char.repeat(w), color));
 }
 
-function renderBox(title, lines, width = termWidth() - 2) {
-  const boxWidth = clamp(width, 44, termWidth());
-  const inner = boxWidth - 2;
-  const outputLines = [paint(boxTop(boxWidth, title), "panel")];
-
-  for (const line of lines) {
-    const wrapped = wrapText(line, inner);
-    for (const part of wrapped) {
-      outputLines.push(`${paint("|", "panel")}${padRightAnsi(part, inner)}${paint("|", "panel")}`);
-    }
-  }
-
-  outputLines.push(paint(`+${"-".repeat(inner)}+`, "panel"));
-  return outputLines.join("\n");
+function printGradientDivider() {
+  const w = termWidth();
+  console.log(gradientText("━".repeat(w)));
 }
 
-function renderSplitPanel(title, leftTitle, rightTitle, leftLines, rightLines) {
-  const width = termWidth() - 2;
-  const inner = width - 2;
-  const divider = " | ";
-  const leftWidth = Math.floor((inner - divider.length) * 0.45);
-  const rightWidth = inner - divider.length - leftWidth;
-
-  const leftWrapped = [];
-  const rightWrapped = [];
-
-  leftWrapped.push(leftTitle);
-  rightWrapped.push(rightTitle);
-
-  for (const line of leftLines) {
-    leftWrapped.push(...wrapText(line, leftWidth));
-  }
-
-  for (const line of rightLines) {
-    rightWrapped.push(...wrapText(line, rightWidth));
-  }
-
-  const rows = Math.max(leftWrapped.length, rightWrapped.length);
-  const content = [];
-
-  for (let i = 0; i < rows; i += 1) {
-    const left = leftWrapped[i] || "";
-    const right = rightWrapped[i] || "";
-    content.push(`${padRightAnsi(left, leftWidth)}${paint(divider, "panel")}${padRightAnsi(right, rightWidth)}`);
-  }
-
-  return renderBox(title, content, width);
+function printSpacer(lines = 1) {
+  for (let i = 0; i < lines; i++) console.log("");
 }
 
-function printSection(title) {
-  const width = termWidth() - 2;
-  console.log("");
-  console.log(paint(`${title}`, "accent", "bold"));
-  console.log(paint("-".repeat(Math.min(width, 78)), "panel"));
+function printLogo() {
+  for (const line of LOGO_DETAIL) {
+    console.log(`  ${gradientText(line)}`);
+  }
 }
 
-function printError(error) {
-  console.log("");
-  console.log(paint(`[HATA] ${error?.message || String(error)}`, "err", "bold"));
+function printHeader(title, icon = "") {
+  const w = termWidth();
+  const label = icon ? `${icon}  ${title}` : title;
+  printSpacer();
+  printGradientDivider();
+  console.log(centerAnsi(paint(label, "bold", "text"), w));
+  printGradientDivider();
+}
+
+function printSectionTitle(title) {
+  const w = termWidth();
+  const label = paint(` ${title} `, "bold", "text");
+  const labelLen = stripAnsi(label).length;
+  const remaining = w - labelLen - 2;
+  const leftLen = 2;
+  const rightLen = Math.max(0, remaining - leftLen);
+  console.log(`${paint("─".repeat(leftLen), "faint")} ${label} ${paint("─".repeat(rightLen), "faint")}`);
+}
+
+function printStatusBar(modelName = "") {
+  const w = termWidth();
+  const pathStr = paint(`📂 ${cwd().replace(/\\/g, "/")}`, "blue");
+  const model = paint(modelName || config.model || "model", "purple", "bold");
+  const provider = paint(config.provider || "provider", "muted");
+  const status = paint("● READY", "green");
+
+  const left = `  ${pathStr}`;
+  const right = `${status}  ${model} ${paint("via", "faint")} ${provider}  `;
+  const leftLen = stripAnsi(left).length;
+  const rightLen = stripAnsi(right).length;
+  const gap = Math.max(1, w - leftLen - rightLen);
+
+  console.log(`${left}${" ".repeat(gap)}${right}`);
+}
+
+function printCard(title, content, options = {}) {
+  const { tone = "muted", icon = "⚡", border = "purple" } = options;
+  const w = Math.max(50, termWidth() - 6);
+  const inner = w - 4;
+  const borderColor = ANSI[border] || ANSI.purple;
+
+  console.log(`  ${borderColor}╭${"─".repeat(inner + 2)}╮${ANSI.reset}`);
+
+  const heading = `${icon}  ${paint(String(title || ""), "bold", border === "red" ? "red" : "purple")}`;
+  console.log(`  ${borderColor}│${ANSI.reset} ${padAnsi(heading, inner)} ${borderColor}│${ANSI.reset}`);
+
+  console.log(`  ${borderColor}├${"─".repeat(inner + 2)}┤${ANSI.reset}`);
+
+  const messageLines = wrapText(String(content || ""), inner - 2);
+  for (const line of messageLines) {
+    console.log(`  ${borderColor}│${ANSI.reset} ${padAnsi(paint(line, tone), inner)} ${borderColor}│${ANSI.reset}`);
+  }
+
+  console.log(`  ${borderColor}╰${"─".repeat(inner + 2)}╯${ANSI.reset}`);
+}
+
+function printToolCard(toolName, body, status = "running") {
+  const icon = status === "done" ? "✓" : status === "error" ? "✕" : "⟳";
+  const tone = status === "done" ? "green" : status === "error" ? "red" : "amber";
+  const statusLabel = paint(` ${icon} ${status.toUpperCase()} `, "bold", tone);
+  const title = `${paint(toolName, "cyan", "bold")} ${statusLabel}`;
+
+  printCard(title, body, { tone: "muted", icon: "⚙️", border: status === "error" ? "red" : "purple" });
 }
 
 function printSuccess(message) {
-  console.log("");
-  console.log(paint(`[OK] ${message}`, "ok", "bold"));
+  console.log(`\n  ${paint("✓", "green", "bold")} ${paint(message, "green")}`);
+}
+
+function printError(error) {
+  console.log(`\n  ${paint("✕", "red", "bold")} ${paint(error?.message || String(error), "red")}`);
+}
+
+function printInfo(message) {
+  console.log(`  ${paint("ℹ", "blue")} ${paint(message, "secondary")}`);
 }
 
 function printJson(value, title = "Output") {
   const lines = JSON.stringify(value, null, 2).split("\n");
-  console.log("");
-  console.log(renderBox(title, lines, Math.min(120, termWidth() - 2)));
-}
-
-function shortId(value) {
-  const text = String(value || "");
-  return text.length <= 8 ? text : text.slice(0, 8);
-}
-
-function truncate(value, max = 64) {
-  const text = String(value || "");
-  if (text.length <= max) {
-    return text;
+  printSpacer();
+  console.log(`  ${paint(title, "purple", "bold")}`);
+  printDivider("─", "faint");
+  for (const line of lines) {
+    // Basic syntax coloring
+    const colored = line
+      .replace(/"([^"]+)":/g, `${ANSI.cyan}"$1"${ANSI.reset}:`)
+      .replace(/: "([^"]*)"/g, `: ${ANSI.green}"$1"${ANSI.reset}`)
+      .replace(/: (\d+)/g, `: ${ANSI.amber}$1${ANSI.reset}`)
+      .replace(/: (true|false|null)/g, `: ${ANSI.purple}$1${ANSI.reset}`);
+    console.log(`  ${colored}`);
   }
-
-  return `${text.slice(0, Math.max(0, max - 3))}...`;
 }
 
-function formatDateTime(isoDate) {
-  if (!isoDate) {
-    return "-";
-  }
-
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) {
-    return String(isoDate);
-  }
-
-  return date.toISOString().replace("T", " ").slice(0, 19);
-}
-
-function printTasksTable(tasks) {
-  if (!Array.isArray(tasks) || tasks.length === 0) {
-    console.log("");
-    console.log(paint("Task yok.", "muted"));
-    return;
-  }
-
-  const rows = tasks.map((task, index) => [
-    paint(String(index + 1), "accent"),
-    shortId(task.id),
-    task.enabled ? paint("Y", "ok") : paint("N", "warn"),
-    formatDateTime(task.nextRunAt),
-    String(task.runCount || 0),
-    truncate(task.name, 32)
-  ]);
-
-  const headers = [
-    paint("#", "accent", "bold"),
-    paint("ID", "accent", "bold"),
-    paint("EN", "accent", "bold"),
-    paint("NEXT RUN (UTC)", "accent", "bold"),
-    paint("RUNS", "accent", "bold"),
-    paint("NAME", "accent", "bold")
-  ];
-
-  const widths = headers.map((header, idx) =>
-    Math.max(stripAnsi(header).length, ...rows.map((row) => stripAnsi(row[idx]).length))
-  );
-
-  const buildLine = (cells) => cells.map((cell, idx) => padRightAnsi(cell, widths[idx])).join(" | ");
-
-  console.log("");
-  console.log(buildLine(headers));
-  console.log(paint(widths.map((width) => "-".repeat(width)).join("-+-"), "panel"));
-  rows.forEach((row) => console.log(buildLine(row)));
-}
+/* ═══════════════════════════════════════════════════════
+   INPUT HELPERS
+   ═══════════════════════════════════════════════════════ */
 
 async function askText(rl, label, options = {}) {
   const required = Boolean(options.required);
   const defaultValue = options.defaultValue ?? "";
+  const prompt = defaultValue
+    ? `  ${paint("❯", "blue")} ${paint(label, "text")} ${paint(`[${defaultValue}]`, "faint")}: `
+    : `  ${paint("❯", "blue")} ${paint(label, "text")}: `;
 
   while (true) {
-    const suffix = defaultValue !== "" ? paint(` [${defaultValue}]`, "muted") : "";
-    const raw = await rl.question(`${paint(label, "accentSoft")}${suffix}: `);
+    const raw = await rl.question(prompt);
     const value = raw.trim();
-
-    if (!value && defaultValue !== "") {
-      return String(defaultValue);
-    }
-
+    if (!value && defaultValue !== "") return String(defaultValue);
     if (!value && required) {
-      console.log(paint("Bos birakamazsin.", "warn"));
+      console.log(`  ${paint("⚠ Bu alan zorunludur.", "amber")}`);
       continue;
     }
-
     return value;
   }
 }
 
 async function askNumber(rl, label, options = {}) {
-  const value = await askText(rl, label, {
-    required: Boolean(options.required),
-    defaultValue: options.defaultValue
-  });
-
-  if (!value) {
-    return undefined;
-  }
-
+  const value = await askText(rl, label, options);
+  if (!value) return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    throw new Error(`${label} numerik olmali`);
+    throw new Error(`${label} numerik olmalı`);
   }
-
   return parsed;
 }
 
-async function askYesNo(rl, label, defaultValue = true) {
-  const fallback = defaultValue ? "y" : "n";
-  const value = (await rl.question(`${paint(label, "accentSoft")} (y/n) ${paint(`[${fallback}]`, "muted")}: `))
-    .trim()
-    .toLowerCase();
-
-  if (!value) {
-    return defaultValue;
+async function chooseMenu(rl, title, menuItems) {
+  printSpacer();
+  if (title) {
+    console.log(`  ${paint(title, "bold", "text")}`);
+    printSpacer();
   }
 
-  if (["y", "yes", "1", "true"].includes(value)) {
-    return true;
-  }
+  menuItems.forEach((item, index) => {
+    const num = paint(String(index + 1).padStart(2, " "), "blue", "bold");
+    const icon = item.icon || "";
+    const label = paint(item.label, "text");
+    const desc = item.desc ? paint(` ─ ${item.desc}`, "muted") : "";
+    console.log(`   ${num}  ${icon}  ${label}${desc}`);
+  });
 
-  if (["n", "no", "0", "false"].includes(value)) {
-    return false;
-  }
+  printSpacer();
 
-  return defaultValue;
+  while (true) {
+    const raw = await askText(rl, "Seçim", { required: true });
+    const choice = Number(raw) - 1;
+    if (Number.isInteger(choice) && choice >= 0 && choice < menuItems.length) {
+      return choice;
+    }
+    console.log(`  ${paint("⚠ Geçersiz seçim. 1-${menuItems.length} arası girin.", "amber")}`);
+  }
 }
 
 async function pause(rl) {
-  await rl.question(`\n${paint("Devam icin Enter...", "muted")}`);
+  await rl.question(`\n  ${paint("↵ Devam etmek için Enter...", "faint")}`);
 }
 
-async function chooseMenu(rl, title, options) {
-  printSection(title);
-  options.forEach((option, idx) => {
-    const no = paint(String(idx + 1).padStart(2, "0"), "accent", "bold");
-    console.log(` ${no}  ${paint(option, "text")}`);
-  });
+/* ═══════════════════════════════════════════════════════
+   SHELL SCREENS
+   ═══════════════════════════════════════════════════════ */
 
-  while (true) {
-    const answer = (await rl.question(`\n${paint("Secim", "accentSoft")}: `)).trim();
-    const index = Number(answer);
-    if (Number.isInteger(index) && index >= 1 && index <= options.length) {
-      return index - 1;
-    }
+function printMenuShell() {
+  console.clear();
+  printSpacer();
+  printLogo();
+  printSpacer();
+  console.log(centerAnsi(gradientText("AI Agent — Research, Automation, Orchestration"), termWidth()));
+  printSpacer();
+  printStatusBar(config.model || config.provider);
+  printGradientDivider();
 
-    console.log(paint(`Gecersiz secim. 1-${options.length} arasi gir.`, "warn"));
-  }
+  // Tips
+  console.log(`  ${paint("Quickstart:", "bold", "text")}`);
+  console.log(`  ${paint("1.", "blue")} ${paint("AI Chat", "text")} — çok turlu sohbet modu`, paint("(önerilen)", "green"));
+  console.log(`  ${paint("2.", "blue")} ${paint("AI Ask", "text")} — tek prompt ile yanıt`);
+  console.log(`  ${paint("3.", "blue")} ${paint("Research & Task", "text")} — araştır ve otomatize et`);
 }
+
+function printChatShell(modelName = "") {
+  console.clear();
+  printSpacer();
+  printLogo();
+  printSpacer();
+
+  const w = termWidth();
+  const left = `  ${paint("💬 Chat Modu", "purple", "bold")}`;
+  const right = `${paint(modelName || config.model, "blue")} ${paint("●", "green")}  `;
+  const leftLen = stripAnsi(left).length;
+  const rightLen = stripAnsi(right).length;
+  const gap = Math.max(1, w - leftLen - rightLen);
+  console.log(`${left}${" ".repeat(gap)}${right}`);
+  printGradientDivider();
+
+  printInfo("/help → komutlar · /back → ana menü · /clear → temizle · /reset → hafıza sıfırla");
+  printSpacer();
+}
+
+/* ═══════════════════════════════════════════════════════
+   AGENT HELPERS
+   ═══════════════════════════════════════════════════════ */
 
 function createAgent(getProvider, onEvent) {
   const provider = getProvider(true);
@@ -377,189 +410,123 @@ function createAgent(getProvider, onEvent) {
   return new AssistantAgent({
     provider,
     toolRegistry,
-    maxSteps: 20,
+    maxSteps: -1,
     onEvent
   });
 }
 
-function resolveTaskSelector(tasks, selector) {
-  const value = String(selector || "").trim();
-  if (!value) {
-    throw new Error("Task secimi bos olamaz");
-  }
-
-  if (/^\d+$/.test(value)) {
-    const index = Number(value) - 1;
-    if (index >= 0 && index < tasks.length) {
-      return tasks[index];
+function makeEventHandler() {
+  return (event) => {
+    if (!event) return;
+    if (event.type === "tool_call") {
+      printToolCard(event.tool, shortText(event.input), "running");
+    } else if (event.type === "tool_result") {
+      printToolCard(event.tool, shortText(event.output), "done");
+    } else if (event.type === "tool_error") {
+      if (event.tool === "parser") return;
+      printToolCard(event.tool, shortText(event.error), "error");
     }
-  }
-
-  const exact = tasks.find((task) => task.id === value);
-  if (exact) {
-    return exact;
-  }
-
-  const prefixed = tasks.filter((task) => String(task.id || "").startsWith(value));
-  if (prefixed.length === 1) {
-    return prefixed[0];
-  }
-
-  if (prefixed.length > 1) {
-    throw new Error("Bu ID prefix birden fazla task ile eslesiyor");
-  }
-
-  throw new Error("Task bulunamadi");
+  };
 }
 
-function renderWelcomeDashboard() {
-  const leftLines = [
-    "Kaesra CLI v1.0",
-    "Interactive Control Surface",
-    "",
-    "Konum",
-    cwd(),
-    "",
-    "Kisa komut",
-    "AI Ask, Chat, Research, Task",
-    "Chrome, Desktop, API"
-  ];
-
-  const rightLines = [
-    "Tips",
-    "1) Ana menu secimi yap",
-    "2) Research sonucu kart olarak gelir",
-    "3) Chat icinde /reset ve /back kullan",
-    "4) Task merkezinden tasklarini yonet",
-    "",
-    "Not",
-    "Chrome Quick icin bridge + extension gerekli"
-  ];
-
-  return renderSplitPanel("KAESRA TERMINAL UI", "Workspace", "Getting Started", leftLines, rightLines);
+function printAgentResponse(message) {
+  const w = Math.max(48, termWidth() - 8);
+  const lines = wrapText(message || "", w);
+  printSpacer();
+  console.log(`  ${paint("✦", "purple", "bold")} ${paint(lines[0] || "", "text")}`);
+  for (let i = 1; i < lines.length; i++) {
+    console.log(`    ${paint(lines[i], "text")}`);
+  }
 }
+
+/* ═══════════════════════════════════════════════════════
+   FLOW HANDLERS
+   ═══════════════════════════════════════════════════════ */
 
 async function runAskFlow(rl, getProvider) {
-  printSection("AI Ask");
+  printHeader("AI Ask", "🧠");
+  printInfo("Tek prompt girin, agent tüm araçlarıyla yanıt verecek.");
+  printSpacer();
+
   const prompt = await askText(rl, "Prompt", { required: true });
+  const agent = createAgent(getProvider, makeEventHandler());
 
-  const agent = createAgent(getProvider, (event) => {
-    if (event?.type === "tool_call") {
-      console.log(paint(`> tool:${event.tool}`, "accentSoft", "dim"));
-    }
-    if (event?.type === "tool_error") {
-      console.log(paint(`> tool-error:${event.tool} ${event.error}`, "err", "dim"));
-    }
-  });
-
+  console.log(`\n  ${paint("⟳ İşleniyor...", "amber", "bold")}`);
   const result = await agent.ask(prompt);
-  printSuccess("Yanit hazir");
-  console.log("");
-  console.log(renderBox("Agent", wrapText(String(result.message || "(bos yanit)"), Math.min(100, termWidth() - 6))));
+  printAgentResponse(result.message);
 }
 
 async function runChatFlow(rl, getProvider) {
-  printSection("AI Chat");
-  console.log(paint("Komutlar: /back -> ana menu, /reset -> sohbet hafizasini temizle", "muted"));
+  const provider = getProvider(true);
+  const modelName = provider?.model || config.model;
+  const agent = createAgent(getProvider, makeEventHandler());
 
-  const agent = createAgent(getProvider, (event) => {
-    if (event?.type === "tool_call") {
-      console.log(paint(`  [tool] ${event.tool}`, "accentSoft", "dim"));
-    }
-    if (event?.type === "tool_error") {
-      console.log(paint(`  [tool-error] ${event.tool}: ${event.error}`, "err", "dim"));
-    }
-  });
+  printChatShell(modelName);
 
   while (true) {
-    const text = (await rl.question(`\n${paint("You", "accent", "bold")} > `)).trim();
-    if (!text) {
-      continue;
-    }
+    const text = (await rl.question(`  ${paint("❯", "blue", "bold")} `)).trim();
+    if (!text) continue;
 
-    if (text === "/back") {
-      return;
+    if (text === "/back") return;
+
+    if (text === "/clear") {
+      printChatShell(modelName);
+      printSuccess("Ekran temizlendi, sohbet hafızası korundu.");
+      continue;
     }
 
     if (text === "/reset") {
       agent.reset();
-      printSuccess("Sohbet hafizasi sifirlandi");
+      printSuccess("Sohbet hafızası sıfırlandı.");
+      continue;
+    }
+
+    if (text === "/help") {
+      printSpacer();
+      printSectionTitle("Chat Komutları");
+      [
+        ["/back", "Ana menüye dön"],
+        ["/clear", "Ekranı temizle (hafıza korunur)"],
+        ["/reset", "Sohbet hafızasını sıfırla"]
+      ].forEach(([cmd, desc]) => {
+        console.log(`  ${paint(cmd, "blue", "bold")}  ${paint("→", "faint")}  ${paint(desc, "secondary")}`);
+      });
       continue;
     }
 
     try {
+      console.log(`\n  ${paint("⟳ Düşünüyor...", "amber")}`);
       const result = await agent.ask(text);
-      console.log(`\n${paint("Agent", "ok", "bold")} > ${paint(result.message || "", "text")}`);
+      printAgentResponse(result.message);
     } catch (error) {
       printError(error);
     }
   }
 }
 
-function printResearchSummary(result) {
-  const items = result?.research?.results;
-  if (!Array.isArray(items)) {
-    printJson(result, "Research");
-    return;
-  }
-
-  const meta = [
-    `Provider: ${result?.research?.provider || "-"}`,
-    `Sorgu: ${result?.research?.query || "-"}`,
-    `Sonuc: ${items.length}`
-  ];
-  console.log("");
-  console.log(renderBox("Research Summary", meta));
-
-  items.forEach((item, idx) => {
-    const title = item?.title || "-";
-    const lines = [
-      truncate(title, 140),
-      item?.url || "-",
-      "",
-      item?.snippet || "-"
-    ];
-    console.log("");
-    console.log(renderBox(`#${String(idx + 1).padStart(2, "0")}`, lines));
-  });
-
-  if (result?.summary) {
-    console.log("");
-    console.log(renderBox("AI Ozet", wrapText(result.summary, Math.min(termWidth() - 6, 110))));
-  }
-}
-
 async function runResearchFlow(rl, getProvider) {
-  printSection("Research");
-  const query = await askText(rl, "Sorgu", { required: true });
-  const maxResults = await askNumber(rl, "Max sonuc", { defaultValue: "5" });
-  const summarize = await askYesNo(rl, "AI ile ozetlensin mi", true);
+  printHeader("Web Research", "🔬");
+  printInfo("Tavily/SerpAPI/DuckDuckGo ile web araştırması yapın.");
+  printSpacer();
 
-  console.log(paint("\nArama yapiliyor...", "accentSoft"));
+  const query = await askText(rl, "Araştırma sorgusu", { required: true });
+  const maxResults = await askNumber(rl, "Max sonuç", { defaultValue: "5" });
 
-  const provider = summarize ? getProvider(true) : getProvider(false);
+  console.log(`\n  ${paint("⟳ Araştırma yapılıyor...", "amber", "bold")}`);
+
   const result = await runResearchCommand({
     query,
     maxResults: Number(maxResults || 5),
-    summarize,
-    provider
+    summarize: true,
+    provider: getProvider(true)
   });
 
-  printResearchSummary(result);
+  printJson(result, "🔬 Research Sonuçları");
 }
 
-async function runTaskListFlow(logger) {
-  const result = await runTaskCommand({
-    provider: null,
-    logger,
-    action: "list",
-    input: {}
-  });
+async function runTaskFlow(rl, logger) {
+  printHeader("Task Merkezi", "📋");
 
-  printTasksTable(result.tasks || []);
-}
-
-async function pickTask(rl, logger) {
   const result = await runTaskCommand({
     provider: null,
     logger,
@@ -568,336 +535,161 @@ async function pickTask(rl, logger) {
   });
 
   const tasks = result.tasks || [];
-  printTasksTable(tasks);
+  printSpacer();
+
   if (!tasks.length) {
-    return null;
-  }
-
-  const selector = await askText(rl, "Task sec (# / id / id-prefix)", { required: true });
-  return resolveTaskSelector(tasks, selector);
-}
-
-async function runTaskCreateFlow(rl, logger) {
-  printSection("Task Olustur");
-  const name = await askText(rl, "Task adi", { required: true });
-  const prompt = await askText(rl, "Task prompt", { required: true });
-  const runAt = await askText(rl, "Run at (ISO, bos birak = yok)", {});
-  const intervalMs = await askText(rl, "Interval ms (bos birak = yok)", {});
-  const enabled = await askYesNo(rl, "Enabled", true);
-
-  const result = await runTaskCommand({
-    provider: null,
-    logger,
-    action: "create",
-    input: {
-      name,
-      prompt,
-      runAt: runAt || undefined,
-      intervalMs: intervalMs ? Number(intervalMs) : undefined,
-      enabled
-    }
-  });
-
-  printSuccess(`Task olustu: ${result?.task?.id || "-"}`);
-}
-
-async function runTaskRunFlow(rl, logger, getProvider) {
-  printSection("Task Simdi Calistir");
-  const task = await pickTask(rl, logger);
-  if (!task) {
+    printInfo("Henüz görev bulunamadı.");
+    printSpacer();
+    printInfo("Görev oluşturmak için: kaesra task create \"ad\" \"prompt\"");
     return;
   }
 
-  const result = await runTaskCommand({
-    provider: getProvider(true),
-    logger,
-    action: "run",
-    input: {
-      id: task.id
-    }
+  printSectionTitle(`${tasks.length} Görev`);
+  printSpacer();
+
+  tasks.forEach((task, index) => {
+    const num = paint(String(index + 1).padStart(2, " "), "blue", "bold");
+    const status = task.enabled
+      ? paint("● ON", "green", "bold")
+      : paint("○ OFF", "muted");
+    const name = paint(task.name || "-", "text", "bold");
+    const id = paint(task.id || "-", "faint");
+    console.log(`   ${num}  ${status}  ${name}  ${id}`);
   });
-
-  printJson(result, "Task Run");
 }
 
-async function runTaskDeleteFlow(rl, logger) {
-  printSection("Task Sil");
-  const task = await pickTask(rl, logger);
-  if (!task) {
-    return;
-  }
-
-  const confirmed = await askYesNo(rl, `Silinsin mi: ${task.name}`, false);
-  if (!confirmed) {
-    printSuccess("Iptal edildi");
-    return;
-  }
-
-  const result = await runTaskCommand({
-    provider: null,
-    logger,
-    action: "delete",
-    input: {
-      id: task.id
-    }
-  });
-
-  printSuccess(result.deleted ? "Task silindi" : "Task bulunamadi");
-}
-
-async function runTaskToggleFlow(rl, logger) {
-  printSection("Task Enable/Disable");
-  const task = await pickTask(rl, logger);
-  if (!task) {
-    return;
-  }
-
-  const nextEnabled = !Boolean(task.enabled);
-  const result = await runTaskCommand({
-    provider: null,
-    logger,
-    action: "update",
-    input: {
-      id: task.id,
-      enabled: nextEnabled
-    }
-  });
-
-  printSuccess(`Task ${result?.task?.enabled ? "enabled" : "disabled"}`);
-}
-
-async function runTaskCenterFlow(rl, logger, getProvider) {
-  const menu = [
-    "Task listesi",
-    "Task olustur",
-    "Task simdi calistir",
-    "Task enable/disable",
-    "Task sil",
-    "Geri"
-  ];
-
-  while (true) {
-    const choice = await chooseMenu(rl, "Task Merkezi", menu);
-
-    try {
-      if (choice === 0) {
-        await runTaskListFlow(logger);
-      } else if (choice === 1) {
-        await runTaskCreateFlow(rl, logger);
-      } else if (choice === 2) {
-        await runTaskRunFlow(rl, logger, getProvider);
-      } else if (choice === 3) {
-        await runTaskToggleFlow(rl, logger);
-      } else if (choice === 4) {
-        await runTaskDeleteFlow(rl, logger);
-      } else if (choice === 5) {
-        return;
-      }
-    } catch (error) {
-      printError(error);
-    }
-
-    await pause(rl);
-  }
-}
-
-async function runChromeQuickFlow(rl) {
-  const menu = [
-    "Bridge status",
-    "Aktif tab",
-    "Tab listesi",
-    "Navigate aktif tab",
-    "Aktif tab text extract",
-    "Geri"
-  ];
-
-  while (true) {
-    const choice = await chooseMenu(rl, "Chrome Quick", menu);
-
-    try {
-      if (choice === 0) {
-        printJson(await runChromeCommand({ action: "status" }), "Chrome Status");
-      } else if (choice === 1) {
-        printJson(await runChromeCommand({ action: "getActiveTab" }), "Chrome Active Tab");
-      } else if (choice === 2) {
-        printJson(await runChromeCommand({ action: "listTabs", currentWindow: true }), "Chrome Tabs");
-      } else if (choice === 3) {
-        const url = await askText(rl, "URL", { required: true });
-        printJson(await runChromeCommand({ action: "navigateActive", url }), "Chrome Navigate");
-      } else if (choice === 4) {
-        const maxChars = await askNumber(rl, "Max chars", { defaultValue: "5000" });
-        printJson(await runChromeCommand({ action: "extractActiveText", maxChars }), "Chrome Extract");
-      } else if (choice === 5) {
-        return;
-      }
-    } catch (error) {
-      printError(error);
-    }
-
-    await pause(rl);
-  }
-}
-
-async function runDesktopQuickFlow(rl) {
-  const menu = ["Installed app ara/listele", "App ac", "Geri"];
-
-  while (true) {
-    const choice = await chooseMenu(rl, "Desktop Quick", menu);
-
-    try {
-      if (choice === 0) {
-        const query = await askText(rl, "Query (bos = tumu)", {});
-        const limit = await askNumber(rl, "Limit", { defaultValue: "120" });
-        const result = await runDesktopCommand({
-          action: "installed",
-          query: query || undefined,
-          limit,
-          refresh: false
-        });
-        printJson(result, "Desktop Installed");
-      } else if (choice === 1) {
-        const target = await askText(rl, "Hedef (or: notepad.exe veya app name)", { required: true });
-        const useAppName = await askYesNo(rl, "Bunu app-name olarak dene", true);
-
-        const result = await runDesktopCommand(
-          useAppName
-            ? {
-                action: "open",
-                appName: target
-              }
-            : {
-                action: "open",
-                target
-              }
-        );
-        printJson(result, "Desktop Open");
-      } else if (choice === 2) {
-        return;
-      }
-    } catch (error) {
-      printError(error);
-    }
-
-    await pause(rl);
-  }
-}
-
-function parseJsonOrUndefined(label, value) {
-  const text = String(value || "").trim();
-  if (!text) {
-    return undefined;
-  }
-
+async function runChromeQuickFlow() {
+  printHeader("Chrome Bridge", "🌐");
+  console.log(`  ${paint("⟳ Durum kontrol ediliyor...", "amber")}`);
   try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`${label} gecerli JSON olmali (${error.message})`);
+    const status = await runChromeCommand({ action: "status" });
+    printJson(status, "🌐 Chrome Bridge Durumu");
+  } catch (err) {
+    printError(err);
+    printInfo("Bridge başlatmak için: npm run bridge");
+  }
+}
+
+async function runDesktopQuickFlow() {
+  printHeader("Desktop Uygulamalar", "🖥️");
+  console.log(`  ${paint("⟳ Uygulamalar taranıyor...", "amber")}`);
+  try {
+    const list = await runDesktopCommand({
+      action: "installed",
+      limit: 30
+    });
+    printJson(list, "🖥️ Yüklü Uygulamalar");
+  } catch (err) {
+    printError(err);
   }
 }
 
 async function runApiQuickFlow(rl) {
-  printSection("API Quick");
+  printHeader("API Quick Call", "⚡");
+  printInfo("Hızlı HTTP isteği gönderin.");
+  printSpacer();
+
   const method = (await askText(rl, "Method", { defaultValue: "GET" })).toUpperCase();
   const url = await askText(rl, "URL", { required: true });
-  const headersRaw = await askText(rl, "Headers JSON (bos birak = yok)", {});
-  const bodyRaw = await askText(rl, "Body (JSON veya text, bos birak = yok)", {});
-  const timeoutMs = await askNumber(rl, "Timeout ms", { defaultValue: "30000" });
 
-  const headers = parseJsonOrUndefined("Headers", headersRaw);
-  let body = undefined;
-  if (bodyRaw) {
-    try {
-      body = JSON.parse(bodyRaw);
-    } catch {
-      body = bodyRaw;
-    }
-  }
-
-  const result = await runApiCommand({
-    method,
-    url,
-    headers,
-    body,
-    timeoutMs
-  });
-
-  printJson(result, "API");
+  console.log(`\n  ${paint("⟳ İstek gönderiliyor...", "amber")}`);
+  const result = await runApiCommand({ method, url, timeoutMs: 30000 });
+  printJson(result, "⚡ API Yanıtı");
 }
 
 async function runToolsFlow(getProvider) {
-  printSection("Tools Listesi");
+  printHeader("Araç Kataloğu", "🔧");
+
   const provider = getProvider(false);
   const registry = createToolRegistry({ provider });
   const list = registry.list();
 
-  list.forEach((tool, idx) => {
-    const name = paint(`${String(idx + 1).padStart(2, "0")} ${tool.name}`, "accent", "bold");
-    console.log(name);
-    console.log(`   ${paint(tool.description, "muted")}`);
+  printSpacer();
+  printSectionTitle(`${list.length} Araç Mevcut`);
+  printSpacer();
+
+  list.forEach((tool, index) => {
+    const num = paint(String(index + 1).padStart(2, " "), "blue", "bold");
+    const name = paint(tool.name, "cyan", "bold");
+    const desc = paint(tool.description || "", "secondary");
+    console.log(`   ${num}  ${name}`);
+    console.log(`       ${desc}`);
+    if (index < list.length - 1) console.log("");
   });
 }
+
+/* ═══════════════════════════════════════════════════════
+   MAIN UI LOOP
+   ═══════════════════════════════════════════════════════ */
 
 export async function runUiCommand({ getProvider, logger }) {
   const rl = readline.createInterface({ input, output });
 
   try {
-    console.clear();
-    console.log(renderWelcomeDashboard());
+    printMenuShell();
 
     while (true) {
-      const choice = await chooseMenu(rl, "Ana Menu", MAIN_MENU);
+      const choice = await chooseMenu(rl, "Ana Menü", MAIN_MENU);
 
       try {
-        if (choice === 0) {
-          await runAskFlow(rl, getProvider);
-          await pause(rl);
-          continue;
-        }
+        switch (choice) {
+          case 0:
+            await runAskFlow(rl, getProvider);
+            await pause(rl);
+            printMenuShell();
+            break;
 
-        if (choice === 1) {
-          await runChatFlow(rl, getProvider);
-          continue;
-        }
+          case 1:
+            await runChatFlow(rl, getProvider);
+            printMenuShell();
+            break;
 
-        if (choice === 2) {
-          await runResearchFlow(rl, getProvider);
-          await pause(rl);
-          continue;
-        }
+          case 2:
+            await runResearchFlow(rl, getProvider);
+            await pause(rl);
+            printMenuShell();
+            break;
 
-        if (choice === 3) {
-          await runTaskCenterFlow(rl, logger, getProvider);
-          continue;
-        }
+          case 3:
+            await runTaskFlow(rl, logger);
+            await pause(rl);
+            printMenuShell();
+            break;
 
-        if (choice === 4) {
-          await runChromeQuickFlow(rl);
-          continue;
-        }
+          case 4:
+            await runChromeQuickFlow();
+            await pause(rl);
+            printMenuShell();
+            break;
 
-        if (choice === 5) {
-          await runDesktopQuickFlow(rl);
-          continue;
-        }
+          case 5:
+            await runDesktopQuickFlow();
+            await pause(rl);
+            printMenuShell();
+            break;
 
-        if (choice === 6) {
-          await runApiQuickFlow(rl);
-          await pause(rl);
-          continue;
-        }
+          case 6:
+            await runApiQuickFlow(rl);
+            await pause(rl);
+            printMenuShell();
+            break;
 
-        if (choice === 7) {
-          await runToolsFlow(getProvider);
-          await pause(rl);
-          continue;
-        }
+          case 7:
+            await runToolsFlow(getProvider);
+            await pause(rl);
+            printMenuShell();
+            break;
 
-        if (choice === 8) {
-          break;
+          case 8:
+            return;
+
+          default:
+            break;
         }
       } catch (error) {
         printError(error);
         await pause(rl);
+        printMenuShell();
       }
     }
   } finally {

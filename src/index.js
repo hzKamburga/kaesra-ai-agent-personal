@@ -13,8 +13,13 @@ import { runChromeCommand } from "./commands/chromeCommand.js";
 import { runBridgeCommand } from "./commands/bridgeCommand.js";
 import { runTaskCommand } from "./commands/taskCommand.js";
 import { runDesktopCommand } from "./commands/desktopCommand.js";
+import { runScanCommand } from "./commands/scanCommand.js";
+
 import { runUiCommand } from "./commands/uiCommand.js";
+import { runSecurityCommand } from "./commands/securityCommand.js";
+import { runReverseCommand } from "./commands/reverseCommand.js";
 import { AssistantAgent } from "./agent/assistantAgent.js";
+import { startGuiServer } from "./gui/server.js";
 
 const program = new Command();
 
@@ -84,7 +89,7 @@ async function runWithErrorHandling(fn) {
 }
 
 program
-  .name("kaesra-agent")
+  .name("kaesra")
   .description("Node.js AI agent: research, browser automation, project generation, API orchestration")
   .version("1.0.0");
 
@@ -100,6 +105,46 @@ program
   );
 
 program
+  .command("scan <url> [instruction...]")
+  .description("Multi-agent güvenlik taraması (Chrome Live, Puppeteer yok)")
+  .option("-d, --depth <number>", "Crawl derinliği", "2")
+  .option("-p, --max-pages <number>", "Maksimum sayfa sayısı", "10")
+  .option("-t, --timeout <seconds>", "Timeout (saniye)", "180")
+  .option("-i, --instruction <text>", "Özel tarama talimatı")
+  .option("--no-ai", "AI analizini devre dışı bırak")
+  .option("--no-sqli", "SQL injection testini atla")
+  .option("--no-xss", "XSS testini atla")
+  .option("--no-headers", "Header testini atla")
+  .action((url, instructionParts, options) =>
+    runWithErrorHandling(async () => {
+      const provider = getProvider(false);
+      const toolRegistry = createToolRegistry({ provider });
+
+      let finalInstruction = options.instruction || null;
+      if (!finalInstruction && instructionParts && instructionParts.length > 0) {
+        finalInstruction = instructionParts.join(" ");
+      }
+
+      await runScanCommand({
+        url,
+        provider,
+        toolRegistry,
+        options: {
+          depth: Number(options.depth) || 2,
+          maxPages: Number(options.maxPages) || 10,
+          timeout: Number(options.timeout) || 180,
+          instruction: finalInstruction,
+          ai: options.ai !== false,
+          probeSqli: options.sqli !== false,
+          probeXss: options.xss !== false,
+          probeHeaders: options.headers !== false
+        }
+      });
+    })
+  );
+
+
+program
   .command("ui")
   .description("Interactive CLI UI dashboard")
   .action(() =>
@@ -112,13 +157,30 @@ program
   );
 
 program
+  .command("gui")
+  .description("Start web-based GUI dashboard (open in browser or use with Electron)")
+  .option("--host <host>", "server host", "127.0.0.1")
+  .option("--port <number>", "server port", "3939")
+  .action((options) =>
+    runWithErrorHandling(async () => {
+      const host = options.host || "127.0.0.1";
+      const port = Number(options.port || 3939);
+      startGuiServer({ host, port, getProvider, config, logger });
+      logger.info(`Dashboard: http://${host}:${port}`);
+      logger.info("Tarayıcıda aç veya 'npm run electron' ile masaüstü uygulaması başlat.");
+      // Keep process alive
+      await new Promise(() => { });
+    })
+  );
+
+program
   .command("ask <prompt...>")
   .description("Single-turn ask mode with agent tool usage")
   .action((promptParts) =>
     runWithErrorHandling(async () => {
       const provider = getProvider(true);
       const toolRegistry = createToolRegistry({ provider });
-      const agent = new AssistantAgent({ provider, toolRegistry, maxSteps: 20 });
+      const agent = new AssistantAgent({ provider, toolRegistry, maxSteps: -1 });
       const result = await agent.ask(promptParts.join(" "));
       printResult(result);
     })
@@ -221,6 +283,25 @@ projectCommand
         },
         { provider }
       );
+      printResult(result);
+    })
+  );
+
+projectCommand
+  .command("link [projectPath]")
+  .description("Run npm link for a project and optionally link it into another project")
+  .option("--package-name <name>", "package name override for npm link <name>")
+  .option("--link-to <path>", "consumer project path for npm link <package-name>")
+  .option("--no-global", "skip npm link in source project")
+  .action((projectPath, options) =>
+    runWithErrorHandling(async () => {
+      const result = await runProjectCommand({
+        mode: "link",
+        projectPath: projectPath || process.cwd(),
+        packageName: options.packageName,
+        linkTo: options.linkTo,
+        global: Boolean(options.global)
+      });
       printResult(result);
     })
   );
@@ -605,6 +686,40 @@ program
       const provider = getProvider(false);
       const toolRegistry = createToolRegistry({ provider });
       printResult(toolRegistry.list());
+    })
+  );
+
+program
+  .command("reverse <url>")
+  .description("Reverse engineer a website using Chrome bridge & AI")
+  .option("--filter <text>", "filter chunks by name", "main")
+  .option("--list", "list chunks only")
+  .action((url, options) =>
+    runWithErrorHandling(async () => {
+      const provider = getProvider(true);
+      const result = await runReverseCommand({
+        url,
+        provider,
+        chunkFilter: options.filter,
+        action: options.list ? "list" : "analyze"
+      });
+      printResult(result);
+    })
+  );
+
+program
+  .command("security <target...>")
+  .description("Scan target directory for security vulnerabilities")
+  .option("--max-files <number>", "max files to analyze", "20")
+  .action((targetParts, options) =>
+    runWithErrorHandling(async () => {
+      const provider = getProvider(true);
+      const result = await runSecurityCommand({
+        targetDir: targetParts.join(" ") || ".",
+        provider,
+        maxFiles: Number(options.maxFiles)
+      });
+      printResult(result);
     })
   );
 

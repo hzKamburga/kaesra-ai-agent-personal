@@ -5,11 +5,13 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
+    "kaesra": "src/index.js",
     "kaesra-agent": "src/index.js"
   },
   "scripts": {
     "start": "node src/index.js",
     "ui": "node src/index.js ui",
+    "gui": "node src/index.js gui",
     "chat": "node src/index.js chat",
     "research": "node src/index.js research",
     "browse": "node src/index.js browse",
@@ -19,7 +21,9 @@
     "desktop": "node src/index.js desktop",
     "bridge": "node src/index.js bridge",
     "task": "node src/index.js task",
-    "check": "node --check src/index.js"
+    "electron": "electron src/electron/main.js",
+    "check": "node --check src/index.js",
+    "link:self": "npm link"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -29,8 +33,13 @@
     "cheerio": "^1.1.2",
     "commander": "^14.0.1",
     "dotenv": "^17.2.3",
+    "electron-is-dev": "^3.0.1",
     "openai": "^6.7.0",
     "playwright": "^1.55.0",
+    "ws": "^8.19.0",
     "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "electron": "^40.4.0"
   }
 }

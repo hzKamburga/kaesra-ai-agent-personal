@@ -63,6 +63,9 @@ export class ChromeCommandBus {
   }
 
   async poll(waitMs = 25000) {
+    // Poll requests are heartbeat signals from the extension worker.
+    this.lastPollAt = new Date().toISOString();
+
     const timeout = clamp(waitMs, 1000, 60000, 25000);
 
     if (this.queue.length > 0) {
@@ -121,7 +124,7 @@ export class ChromeCommandBus {
   status() {
     const nowMs = Date.now();
     const lastPollMs = this.lastPollAt ? Date.parse(this.lastPollAt) : NaN;
-    const extensionConnected = Number.isFinite(lastPollMs) && nowMs - lastPollMs < 45000;
+    const extensionConnected = Number.isFinite(lastPollMs) && nowMs - lastPollMs < 120000;
 
     return {
       queuedCount: this.queue.length,

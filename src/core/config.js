@@ -1,7 +1,32 @@
 import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-dotenv.config({ quiet: true });
+function loadEnvFiles() {
+  const cwdEnvPath = path.resolve(process.cwd(), ".env");
+  const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const packageEnvPath = path.join(packageRoot, ".env");
+
+  const candidates = [cwdEnvPath];
+  if (packageEnvPath !== cwdEnvPath) {
+    candidates.push(packageEnvPath);
+  }
+
+  for (const envPath of candidates) {
+    if (!fs.existsSync(envPath)) {
+      continue;
+    }
+
+    dotenv.config({
+      path: envPath,
+      quiet: true
+    });
+  }
+}
+
+loadEnvFiles();
 
 const schema = z.object({
   AI_PROVIDER: z.enum(["openai", "anthropic", "generic"]).default("openai"),

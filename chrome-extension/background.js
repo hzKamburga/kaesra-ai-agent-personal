@@ -34,6 +34,19 @@ const ACTION_ALIASES = {
   setvalue: "fillSelector",
   scrollpage: "scrollPage",
   scroll: "scrollPage",
+  scrolltop: "scrollToTop",
+  scrollup: "scrollToTop",
+  totop: "scrollToTop",
+  scrollbottom: "scrollToBottom",
+  tobottom: "scrollToBottom",
+  pageinfo: "getPageInfo",
+  getpageinfo: "getPageInfo",
+  pagestate: "getPageInfo",
+  screenshot: "screenshotTab",
+  screenshottab: "screenshotTab",
+  capturetab: "screenshotTab",
+  scrollelement: "scrollElement",
+  scrollinto: "scrollElement",
   wait: "wait",
   closetab: "closeTab",
   close: "closeTab"
@@ -49,6 +62,10 @@ const ACTIONS_REQUIRING_APPROVAL = new Set([
   "clickText",
   "fillSelector",
   "scrollPage",
+  "scrollToTop",
+  "scrollToBottom",
+  "screenshotTab",
+  "scrollElement",
   "closeTab"
 ]);
 
@@ -60,18 +77,64 @@ const TAB_SCOPED_ACTIONS = new Set([
   "clickText",
   "fillSelector",
   "scrollPage",
+  "scrollToTop",
+  "scrollToBottom",
+  "getPageInfo",
+  "screenshotTab",
+  "scrollElement",
   "closeTab"
 ]);
 
 let polling = false;
 const pendingApprovals = new Map();
+const bridgeDiagnostics = {
+  lastPollAttemptAt: null,
+  lastPollSuccessAt: null,
+  lastPollError: "",
+  lastBridgeUrl: normalizeUrl(DEFAULT_SETTINGS.baseUrl),
+  consecutivePollFailures: 0
+};
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeUrl(url) {
-  return String(url || "").trim().replace(/\/+$/, "");
+  const raw = String(url || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const withScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(raw) ? raw : `http://${raw}`;
+  return withScheme.replace(/\/+$/, "");
+}
+
+function buildBridgeBaseCandidates(baseUrl) {
+  const normalized = normalizeUrl(baseUrl || DEFAULT_SETTINGS.baseUrl);
+  if (!normalized) {
+    return [];
+  }
+
+  const candidates = [normalized];
+
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.toLowerCase();
+
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]") {
+      const aliases = host === "localhost" ? ["127.0.0.1"] : ["localhost"];
+
+      for (const alias of aliases) {
+        const next = new URL(parsed.toString());
+        next.hostname = alias;
+        candidates.push(normalizeUrl(next.toString()));
+      }
+    }
+  } catch {
+    // Keep the original candidate.
+  }
+
+  return Array.from(new Set(candidates.filter(Boolean)));
 }
 
 function normalizeAction(action) {
@@ -247,19 +310,55 @@ async function callBridge(path, options = {}) {
     headers["X-Agent-Token"] = settings.apiToken;
   }
 
-  const response = await fetch(`${normalizeUrl(settings.baseUrl)}${path}`, {
-    method: options.method || "GET",
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
+  const candidates = buildBridgeBaseCandidates(settings.baseUrl);
+  let lastNetworkError = null;
 
-  const data = await response.json().catch(() => ({}));
+  for (const baseUrl of candidates) {
+    let response;
 
-  if (!response.ok) {
-    throw new Error(data.error || `Bridge request failed (${response.status})`);
+    try {
+      response = await fetch(`${baseUrl}${path}`, {
+        method: options.method || "GET",
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+    } catch (error) {
+      lastNetworkError = error;
+      continue;
+    }
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || `Bridge request failed (${response.status})`);
+    }
+
+    return data;
   }
 
-  return data;
+  if (lastNetworkError) {
+    throw new Error(
+      `Bridge baglantisi kurulamadi (${candidates.join(" | ")}): ${lastNetworkError.message || String(lastNetworkError)}`
+    );
+  }
+
+  throw new Error("Bridge baglantisi kurulamadi: gecerli bir URL bulunamadi.");
+}
+
+function notePollAttempt(baseUrl) {
+  bridgeDiagnostics.lastPollAttemptAt = new Date().toISOString();
+  bridgeDiagnostics.lastBridgeUrl = normalizeUrl(baseUrl || DEFAULT_SETTINGS.baseUrl) || DEFAULT_SETTINGS.baseUrl;
+}
+
+function notePollSuccess() {
+  bridgeDiagnostics.lastPollSuccessAt = new Date().toISOString();
+  bridgeDiagnostics.lastPollError = "";
+  bridgeDiagnostics.consecutivePollFailures = 0;
+}
+
+function notePollFailure(error) {
+  bridgeDiagnostics.lastPollError = String(error?.message || error || "");
+  bridgeDiagnostics.consecutivePollFailures += 1;
 }
 
 async function getActiveTab() {
@@ -487,7 +586,7 @@ async function settleApprovalRequest({ requestId, decision, remember, scope }, s
 
   const windowId = sender?.tab?.windowId || request.windowId;
   if (windowId !== undefined && windowId !== null) {
-    void chrome.windows.remove(windowId).catch(() => {});
+    void chrome.windows.remove(windowId).catch(() => { });
   }
 
   return {
@@ -562,6 +661,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
 
     return true;
+  }
+
+  if (type === "bridge:status") {
+    sendResponse({
+      ok: true,
+      status: {
+        polling,
+        ...bridgeDiagnostics
+      }
+    });
+    return false;
   }
 
   return false;
@@ -830,6 +940,60 @@ async function executeChromeCommand(command) {
           element.dispatchEvent(new Event("change", { bubbles: true }));
         };
 
+        const isElementVisible = (target) => {
+          if (!target || typeof target.getBoundingClientRect !== "function") {
+            return false;
+          }
+
+          const style = window.getComputedStyle(target);
+          if (!style || style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+            return false;
+          }
+
+          const rect = target.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        };
+
+        const tryClickSendButton = () => {
+          const keywords = ["send", "submit", "gonder", "gönder", "yolla"];
+          const candidates = Array.from(document.querySelectorAll("button, [role='button']"));
+
+          for (const candidate of candidates) {
+            const label = [
+              candidate.textContent || "",
+              candidate.getAttribute("aria-label") || "",
+              candidate.getAttribute("title") || "",
+              candidate.getAttribute("data-testid") || "",
+              candidate.getAttribute("name") || ""
+            ]
+              .join(" ")
+              .trim()
+              .toLowerCase();
+
+            if (!label) {
+              continue;
+            }
+
+            if (!keywords.some((keyword) => label.includes(keyword))) {
+              continue;
+            }
+
+            if (candidate.disabled || candidate.getAttribute("aria-disabled") === "true") {
+              continue;
+            }
+
+            if (!isElementVisible(candidate)) {
+              continue;
+            }
+
+            candidate.scrollIntoView({ block: "center", behavior: "auto" });
+            candidate.click();
+            return true;
+          }
+
+          return false;
+        };
+
         element.focus();
         element.scrollIntoView({ block: "center", behavior: "auto" });
 
@@ -873,6 +1037,10 @@ async function executeChromeCommand(command) {
             submitted = true;
           } else if (options.pressEnter) {
             submitted = true;
+          }
+
+          if (!form) {
+            submitted = tryClickSendButton() || submitted;
           }
         }
 
@@ -924,8 +1092,118 @@ async function executeChromeCommand(command) {
     );
   }
 
+  if (action === "scrollToTop") {
+    const tab = await getTabByInput(input.tabId);
+    return runScript(
+      tab.id,
+      () => {
+        const before = window.scrollY || 0;
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        return {
+          before,
+          after: 0,
+          moved: -before,
+          pageHeight: document.documentElement?.scrollHeight || 0,
+          viewportHeight: window.innerHeight || 0,
+          atTop: true
+        };
+      }
+    );
+  }
+
+  if (action === "scrollToBottom") {
+    const tab = await getTabByInput(input.tabId);
+    return runScript(
+      tab.id,
+      () => {
+        const before = window.scrollY || 0;
+        const pageHeight = document.documentElement?.scrollHeight || 0;
+        window.scrollTo({ top: pageHeight, left: 0, behavior: "auto" });
+        const after = window.scrollY || 0;
+        return {
+          before,
+          after,
+          moved: after - before,
+          pageHeight,
+          viewportHeight: window.innerHeight || 0,
+          atBottom: true
+        };
+      }
+    );
+  }
+
+  if (action === "getPageInfo") {
+    const tab = await getTabByInput(input.tabId);
+    return runScript(
+      tab.id,
+      () => {
+        const scrollY = window.scrollY || 0;
+        const pageHeight = document.documentElement?.scrollHeight || 0;
+        const viewportHeight = window.innerHeight || 0;
+        const scrollable = pageHeight > viewportHeight;
+        const atTop = scrollY <= 10;
+        const atBottom = scrollY + viewportHeight >= pageHeight - 10;
+        const scrollPercent = scrollable ? Math.round((scrollY / (pageHeight - viewportHeight)) * 100) : 100;
+        return {
+          url: location.href,
+          title: document.title || "",
+          scrollY,
+          pageHeight,
+          viewportHeight,
+          scrollable,
+          atTop,
+          atBottom,
+          scrollPercent
+        };
+      }
+    );
+  }
+
+  if (action === "screenshotTab") {
+    const tab = await getTabByInput(input.tabId);
+    // Make the tab active before capture
+    await chrome.tabs.update(tab.id, { active: true });
+    await sleep(300);
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+    return {
+      dataUrl,
+      tabId: tab.id,
+      url: tab.url,
+      title: tab.title
+    };
+  }
+
+  if (action === "scrollElement") {
+    const selector = String(input.selector || "").trim();
+    const tab = await getTabByInput(input.tabId);
+    const amount = Number(input.amount) || 600;
+    const direction = String(input.direction || "up").toLowerCase() === "down" ? 1 : -1;
+
+    return runScript(
+      tab.id,
+      (query, scrollAmount, scrollDir) => {
+        const el = query ? document.querySelector(query) : null;
+        if (!el) {
+          // Fallback: try to find scrollable message container
+          const candidates = Array.from(document.querySelectorAll("[role='log'], [role='main'], main, [class*='messages'], [class*='chat'], [class*='thread']"));
+          const scrollableEl = candidates.find(c => c.scrollHeight > c.clientHeight) || document.documentElement;
+          const before = scrollableEl.scrollTop || 0;
+          scrollableEl.scrollBy({ top: scrollAmount * scrollDir, behavior: "auto" });
+          const after = scrollableEl.scrollTop || 0;
+          return { scrolled: true, element: scrollableEl.tagName, before, after, moved: after - before };
+        }
+        const before = el.scrollTop || 0;
+        el.scrollBy({ top: scrollAmount * scrollDir, behavior: "auto" });
+        const after = el.scrollTop || 0;
+        return { scrolled: true, element: el.tagName, selector: query, before, after, moved: after - before };
+      },
+      [selector, amount, direction]
+    );
+  }
+
   if (action === "wait") {
-    const ms = Math.max(100, Math.min(15000, Number(input.ms) || 1000));
+    const rawMs = input.ms ?? input.durationMs ?? input.waitMs;
+    const ms = Math.max(100, Math.min(15000, Number(rawMs) || 1000));
     await sleep(ms);
     return { waitedMs: ms };
   }
@@ -971,8 +1249,12 @@ async function pollBridgeLoop() {
 
   while (polling) {
     try {
+      const settings = await getSettings();
+      notePollAttempt(settings.baseUrl);
+
       const payload = await callBridge(`/chrome/poll?waitMs=${POLL_WAIT_MS}`);
       const command = payload?.command;
+      notePollSuccess();
 
       if (!command) {
         continue;
@@ -1000,7 +1282,8 @@ async function pollBridgeLoop() {
         method: "POST",
         body: resultBody
       });
-    } catch {
+    } catch (error) {
+      notePollFailure(error);
       await sleep(RETRY_DELAY_MS);
     }
   }

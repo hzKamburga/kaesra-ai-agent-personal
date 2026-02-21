@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kaesra AI Agent — Premium Terminal Dashboard">
+    <title>Kaesra AI Agent</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- ═══ Custom Titlebar ═══ -->
+        <div class="titlebar">
+            <div class="titlebar-left">
+                <div class="titlebar-logo"></div>
+                <span class="titlebar-title">KAESRA AI AGENT</span>
+            </div>
+            <div class="titlebar-controls">
+                <button class="titlebar-btn minimize" id="btn-minimize" title="Minimize"></button>
+                <button class="titlebar-btn maximize" id="btn-maximize" title="Maximize"></button>
+                <button class="titlebar-btn close" id="btn-close" title="Close"></button>
+            </div>
+        </div>
+
+        <!-- ═══ Main Layout ═══ -->
+        <div class="main-layout">
+
+            <!-- ─── Sidebar ─── -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-brand">
+                        <div class="brand-icon">K</div>
+                        <div class="brand-text">
+                            <h1>KAESRA</h1>
+                            <span>AI Agent v1.0</span>
+                        </div>
+                    </div>
+                    <div class="search-box">
+                        <span class="search-icon">⌕</span>
+                        <input type="text" placeholder="Komut ara..." id="sidebar-search" autocomplete="off">
+                    </div>
+                </div>
+
+                <nav class="sidebar-nav" id="sidebar-nav">
+                    <div class="nav-section">
+                        <div class="nav-section-title">Ana</div>
+                        <div class="nav-item active" data-view="terminal" data-shortcut="1">
+                            <span class="nav-icon">⌘</span>
+                            <span class="nav-label">Terminal</span>
+                            <span class="nav-shortcut">⌘1</span>
+                        </div>
+                        <div class="nav-item" data-view="chat" data-shortcut="2">
+                            <span class="nav-icon">💬</span>
+                            <span class="nav-label">AI Chat</span>
+                            <span class="nav-shortcut">⌘2</span>
+                        </div>
+                        <div class="nav-item" data-view="research" data-shortcut="3">
+                            <span class="nav-icon">🔍</span>
+                            <span class="nav-label">Research</span>
+                            <span class="nav-shortcut">⌘3</span>
+                        </div>
+                    </div>
+
+                    <div class="nav-section">
+                        <div class="nav-section-title">Araçlar</div>
+                        <div class="nav-item" data-view="tasks" data-shortcut="4">
+                            <span class="nav-icon">📋</span>
+                            <span class="nav-label">Görevler</span>
+                            <span class="nav-badge" id="task-count">0</span>
+                        </div>
+                        <div class="nav-item" data-view="chrome" data-shortcut="5">
+                            <span class="nav-icon">🌐</span>
+                            <span class="nav-label">Chrome Bridge</span>
+                        </div>
+                        <div class="nav-item" data-view="desktop" data-shortcut="6">
+                            <span class="nav-icon">🖥️</span>
+                            <span class="nav-label">Desktop</span>
+                        </div>
+                        <div class="nav-item" data-view="api" data-shortcut="7">
+                            <span class="nav-icon">⚡</span>
+                            <span class="nav-label">API Quick</span>
+                        </div>
+                        <div class="nav-item" data-view="browser" data-shortcut="8">
+                            <span class="nav-icon">🤖</span>
+                            <span class="nav-label">Browser Auto</span>
+                        </div>
+                    </div>
+
+                    <div class="nav-section">
+                        <div class="nav-section-title">Proje</div>
+                        <div class="nav-item" data-view="project" data-shortcut="9">
+                            <span class="nav-icon">📦</span>
+                            <span class="nav-label">Proje Üretici</span>
+                        </div>
+                        <div class="nav-item" data-view="tools">
+                            <span class="nav-icon">🔧</span>
+                            <span class="nav-label">Araç Listesi</span>
+                        </div>
+                    </div>
+                </nav>
+
+                <div class="sidebar-footer">
+                    <div class="status-indicator">
+                        <div class="status-dot" id="status-dot"></div>
+                        <span class="status-model" id="status-model">gpt-4.1-mini</span>
+                        <span class="status-provider" id="status-provider">openai</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ─── Content ─── -->
+            <main class="content-area" id="content-area">
+
+                <!-- ─── Terminal View ─── -->
+                <div class="terminal-output" id="terminal-output">
+                    <!-- Lines will be appended here by JS -->
+                    <div id="terminal-lines"></div>
+                </div>
+
+                <!-- ─── Input Area ─── -->
+                <div class="input-area" id="input-area">
+                    <div class="input-context">
+                        <span>📂</span>
+                        <span class="ctx-path" id="ctx-path">~/kaesra-aiagent</span>
+                        <span>•</span>
+                        <span class="ctx-branch" id="ctx-mode">terminal</span>
+                    </div>
+                    <div class="input-wrapper">
+                        <span class="prompt-marker" id="prompt-marker">❯</span>
+                        <textarea id="command-input" placeholder="Komut yaz veya AI'ya sor..." rows="1"
+                            spellcheck="false" autocomplete="off"></textarea>
+                        <div class="input-actions">
+                            <button class="input-btn" id="btn-attach" title="Dosya Ekle">📎</button>
+                            <button class="input-btn send-btn" id="btn-send" title="Gönder">➤</button>
+                        </div>
+                    </div>
+                    <div class="input-hint">
+                        <span><kbd>Enter</kbd> gönder · <kbd>Shift+Enter</kbd> yeni satır · <kbd>/help</kbd>
+                            komutlar</span>
+                        <span id="char-count">0 / 4000</span>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- ═══ Toast Container ═══ -->
+        <div class="toast-container" id="toast-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

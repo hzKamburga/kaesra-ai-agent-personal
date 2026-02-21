@@ -199,18 +199,24 @@ export class GenericProvider extends BaseProvider {
       payload.messages.push({ role: message.role, content: message.content });
     }
 
-    const response = await fetch(this.endpoint, {
-      method: "POST",
-      headers: {
-        ...getDefaultHeaders(this.apiKey),
-        ...this.headers
-      },
-      body: JSON.stringify(payload)
-    });
+    let response;
+    try {
+      response = await fetch(this.endpoint, {
+        method: "POST",
+        headers: {
+          ...getDefaultHeaders(this.apiKey),
+          ...this.headers
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (fetchErr) {
+      const cause = fetchErr?.cause?.code || fetchErr?.cause?.message || fetchErr?.message || "unknown";
+      throw new Error(`AI endpoint'e bağlanılamadı (${this.endpoint}): ${cause}`);
+    }
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Generic provider request failed (${response.status}): ${text}`);
+      throw new Error(`AI isteği başarısız (${response.status}): ${text.slice(0, 300)}`);
     }
 
     const rawText = await response.text();

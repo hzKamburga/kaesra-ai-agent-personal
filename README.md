@@ -17,7 +17,10 @@ Cok amacli bir Node.js AI agent iskeleti:
 ```bash
 npm install
 cp .env.example .env
+npm link
 ```
+
+`npm link` sonrasi komutlari dogrudan `kaesra` ile calistirabilirsin (ornek: `kaesra ui`, `kaesra chat`).
 
 `.env` icinde en az bir AI provider ayarla:
 
@@ -122,11 +125,14 @@ node src/index.js project scaffold node-api benim-api
 node src/index.js project scaffold python-cli veri-analiz-cli --target-dir "D:\\Yeni klasor (4)"
 node src/index.js project generate crm-bot "express tabanli CRM API, JWT auth ve SQLite olsun"
 node src/index.js project generate casino-sim "python cli kumar simulasyonu" --target-dir "D:\\Yeni klasor (4)"
+node src/index.js project link ".\\benim-cli-projem"
+node src/index.js project link ".\\benim-cli-projem" --link-to ".\\tuketici-proje"
 ```
 
 Agent tarafinda proje testlemek icin `project` araci `mode=test` destekler (Python icin `python -m py_compile`, Node icin `node --check`).
 Istersen `mode=test` icinde `command` ve `input` da verilebilir (ornek: `python main.py`).
 Agent `project` araci ile dis klasorlerde `mode=write|edit|delete` islemleri de yapabilir.
+`project mode=link` ile proje klasorunde `npm link` ve opsiyonel olarak hedef klasorde `npm link <paket-adi>` adimlari calistirilabilir.
 
 ### API cagrisi
 

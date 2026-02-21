@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="tr">
   <head>
     <meta charset="utf-8" />
@@ -6,15 +6,19 @@
     <title>Kaesra Agent</title>
     <style>
       :root {
-        --bg: #081022;
-        --panel: #0f172a;
-        --panel-2: #111827;
-        --text: #e2e8f0;
-        --muted: #94a3b8;
-        --border: #334155;
-        --accent: #2563eb;
-        --success: #16a34a;
-        --danger: #b91c1c;
+        --bg-0: #07131c;
+        --bg-1: #0a1d2a;
+        --bg-2: #0e2534;
+        --panel: rgba(8, 20, 33, 0.9);
+        --panel-strong: rgba(6, 14, 25, 0.95);
+        --text: #d7e8f6;
+        --muted: #8ca4ba;
+        --border: rgba(113, 143, 171, 0.35);
+        --accent: #1d8cf8;
+        --accent-soft: rgba(29, 140, 248, 0.2);
+        --success: #19b26b;
+        --warn: #d97706;
+        --danger: #be123c;
       }
 
       * {
@@ -23,24 +27,34 @@
 
       body {
         margin: 0;
-        width: 420px;
-        min-height: 640px;
-        background: radial-gradient(circle at top, #18243d 0%, #060c19 70%);
+        width: 980px;
+        min-height: 700px;
         color: var(--text);
+        background:
+          radial-gradient(1200px 560px at 100% -10%, rgba(16, 185, 129, 0.14), transparent 55%),
+          radial-gradient(900px 500px at 0% 0%, rgba(59, 130, 246, 0.2), transparent 60%),
+          linear-gradient(180deg, var(--bg-2) 0%, var(--bg-0) 100%);
         font-family: "Segoe UI", Tahoma, sans-serif;
       }
 
-      .app {
+      .app-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+      }
+
+      .column {
         display: grid;
         gap: 10px;
-        padding: 12px;
+        align-content: start;
       }
 
       .header {
         border: 1px solid var(--border);
-        border-radius: 12px;
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.85), rgba(2, 6, 23, 0.9));
-        padding: 10px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(19, 36, 53, 0.9), rgba(7, 16, 28, 0.96));
+        padding: 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -53,6 +67,7 @@
 
       .title strong {
         font-size: 14px;
+        letter-spacing: 0.2px;
       }
 
       .title span {
@@ -77,25 +92,24 @@
 
       .dot.online {
         background: var(--success);
-        box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+        box-shadow: 0 0 12px rgba(25, 178, 107, 0.8);
       }
 
       .card {
         border: 1px solid var(--border);
-        border-radius: 12px;
-        background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.92));
+        border-radius: 14px;
+        background: linear-gradient(180deg, var(--panel), var(--panel-strong));
+        overflow: hidden;
       }
 
       .chat-card {
         display: grid;
-        grid-template-rows: 1fr auto auto;
-        min-height: 320px;
-        overflow: hidden;
+        grid-template-rows: minmax(280px, 1fr) auto auto;
+        min-height: 410px;
       }
 
       .chat-feed {
         padding: 10px;
-        max-height: 320px;
         overflow: auto;
         display: grid;
         gap: 8px;
@@ -112,22 +126,22 @@
       }
 
       .bubble.user {
-        background: rgba(37, 99, 235, 0.25);
+        background: var(--accent-soft);
         justify-self: end;
         max-width: 88%;
       }
 
       .bubble.agent {
-        background: rgba(15, 118, 110, 0.28);
+        background: rgba(22, 163, 74, 0.18);
         justify-self: start;
-        max-width: 92%;
+        max-width: 94%;
       }
 
       .bubble.system {
-        background: rgba(100, 116, 139, 0.2);
-        color: var(--muted);
+        background: rgba(100, 116, 139, 0.16);
+        color: #bbccdb;
         justify-self: center;
-        max-width: 95%;
+        max-width: 96%;
       }
 
       .chat-actions {
@@ -135,12 +149,12 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 6px;
-        border-top: 1px solid rgba(51, 65, 85, 0.5);
+        border-top: 1px solid rgba(113, 143, 171, 0.25);
       }
 
       .chat-bar {
         padding: 8px;
-        border-top: 1px solid rgba(51, 65, 85, 0.5);
+        border-top: 1px solid rgba(113, 143, 171, 0.25);
         display: grid;
         grid-template-columns: 1fr auto;
         gap: 6px;
@@ -156,10 +170,10 @@
       input,
       textarea,
       select {
-        background: #0b1220;
+        background: rgba(4, 10, 20, 0.8);
         color: var(--text);
-        border: 1px solid #475569;
-        border-radius: 8px;
+        border: 1px solid rgba(124, 156, 186, 0.45);
+        border-radius: 9px;
         padding: 8px;
       }
 
@@ -170,7 +184,7 @@
 
       button {
         border: 0;
-        border-radius: 8px;
+        border-radius: 9px;
         color: #fff;
         background: var(--accent);
         padding: 8px 10px;
@@ -198,12 +212,12 @@
         cursor: pointer;
         padding: 10px;
         font-size: 12px;
-        color: #cbd5e1;
-        border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+        color: #cae0f2;
+        border-bottom: 1px solid rgba(113, 143, 171, 0.2);
       }
 
       details[open] summary {
-        background: rgba(15, 23, 42, 0.55);
+        background: rgba(24, 44, 64, 0.45);
       }
 
       .section {
@@ -219,14 +233,14 @@
       }
 
       .tasks {
-        max-height: 150px;
+        max-height: 160px;
         overflow: auto;
         display: grid;
         gap: 6px;
       }
 
       .task {
-        border: 1px solid #334155;
+        border: 1px solid rgba(113, 143, 171, 0.25);
         border-radius: 8px;
         padding: 6px;
         display: grid;
@@ -245,78 +259,279 @@
         color: var(--muted);
         font-size: 11px;
       }
+
+      .inspector-card {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-height: 678px;
+      }
+
+      .inspector-head {
+        padding: 12px;
+        border-bottom: 1px solid rgba(113, 143, 171, 0.25);
+        display: grid;
+        gap: 4px;
+      }
+
+      .inspector-head strong {
+        font-size: 13px;
+      }
+
+      .inspector-head span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .inspector-grid {
+        display: grid;
+        grid-template-rows: 180px 180px 1fr;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .panel-block {
+        border: 1px solid rgba(113, 143, 171, 0.25);
+        border-radius: 10px;
+        background: rgba(7, 19, 31, 0.72);
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-height: 0;
+      }
+
+      .panel-block h4 {
+        margin: 0;
+        padding: 8px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        color: #bad4ea;
+        border-bottom: 1px solid rgba(113, 143, 171, 0.2);
+      }
+
+      .timeline,
+      .file-list {
+        padding: 8px;
+        overflow: auto;
+        display: grid;
+        gap: 6px;
+      }
+
+      .timeline-item {
+        border: 1px solid rgba(113, 143, 171, 0.22);
+        border-radius: 7px;
+        padding: 6px 7px;
+        font-size: 11px;
+        background: rgba(6, 15, 26, 0.7);
+      }
+
+      .timeline-item.error {
+        border-color: rgba(239, 68, 68, 0.45);
+        background: rgba(127, 29, 29, 0.28);
+      }
+
+      .file-item {
+        border: 1px solid rgba(113, 143, 171, 0.2);
+        border-radius: 8px;
+        background: rgba(6, 15, 26, 0.76);
+        padding: 7px;
+        font-size: 11px;
+        cursor: pointer;
+        display: grid;
+        gap: 5px;
+      }
+
+      .file-item.active {
+        border-color: rgba(59, 130, 246, 0.8);
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.4) inset;
+      }
+
+      .file-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .badge {
+        border-radius: 999px;
+        padding: 1px 7px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .badge.added {
+        color: #7ff8bd;
+        background: rgba(22, 163, 74, 0.25);
+      }
+
+      .badge.modified {
+        color: #9bc7ff;
+        background: rgba(59, 130, 246, 0.26);
+      }
+
+      .badge.deleted {
+        color: #ffadba;
+        background: rgba(225, 29, 72, 0.26);
+      }
+
+      .badge.unchanged {
+        color: #c2d2de;
+        background: rgba(100, 116, 139, 0.24);
+      }
+
+      .diff-block {
+        min-height: 0;
+      }
+
+      .diff-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(113, 143, 171, 0.2);
+      }
+
+      .diff-head h4 {
+        border: 0;
+        padding: 8px 10px;
+      }
+
+      .diff-head button {
+        margin: 6px 8px 6px 0;
+        padding: 4px 9px;
+        font-size: 10px;
+      }
+
+      .diff-viewer {
+        margin: 0;
+        padding: 10px;
+        overflow: auto;
+        white-space: pre;
+        font-size: 11px;
+        line-height: 1.35;
+        color: #cfe2f3;
+        font-family: Consolas, "Courier New", monospace;
+      }
+
+      @media (max-width: 920px) {
+        body {
+          width: 100%;
+          min-width: 420px;
+        }
+
+        .app-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .inspector-card {
+          min-height: 520px;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="app">
-      <div class="header">
-        <div class="title">
-          <strong>Kaesra Agent Console</strong>
-          <span>AI -> Bridge -> Chrome kontrol paneli</span>
+    <div class="app-shell">
+      <div class="column">
+        <div class="header">
+          <div class="title">
+            <strong>Kaesra Agent Console</strong>
+            <span>AI -> Bridge -> Chrome kontrol paneli</span>
+          </div>
+          <div class="status">
+            <span id="statusDot" class="dot"></span>
+            <span id="statusText">offline</span>
+          </div>
         </div>
-        <div class="status">
-          <span id="statusDot" class="dot"></span>
-          <span id="statusText">offline</span>
+
+        <div class="card chat-card">
+          <div id="chatFeed" class="chat-feed"></div>
+
+          <div class="chat-actions">
+            <button id="summarizeTab" class="secondary">Aktif Sekmeyi Ozetle</button>
+            <button id="checkBridge" class="secondary">Baglanti Testi</button>
+          </div>
+
+          <form id="chatForm" class="chat-bar">
+            <input id="chatInput" placeholder="Ajan komutu yaz..." autocomplete="off" />
+            <button type="submit">Gonder</button>
+          </form>
         </div>
+
+        <details class="card">
+          <summary>Bridge ve Izin Ayarlari</summary>
+          <div class="section">
+            <input id="baseUrl" placeholder="http://127.0.0.1:3434" />
+            <input id="apiToken" placeholder="API Token (opsiyonel)" />
+            <div class="row">
+              <button id="saveSettings" class="secondary">Ayarlari Kaydet</button>
+              <button id="clearApprovals" class="danger">Izinleri Temizle</button>
+            </div>
+            <div id="approvalInfo" class="muted">Kayitli izin kurali: -</div>
+          </div>
+        </details>
+
+        <details class="card">
+          <summary>Gorev Planlayici</summary>
+          <div class="section">
+            <input id="taskName" placeholder="Gorev adi" />
+            <textarea id="taskPrompt" placeholder="Ajan bu promptu calistiracak"></textarea>
+            <div class="row">
+              <input id="runAt" placeholder="runAt (ISO)" />
+              <input id="intervalMs" placeholder="intervalMs" />
+            </div>
+            <div class="row">
+              <button id="createTask">Gorev Olustur</button>
+              <button id="refreshTasks" class="secondary">Yenile</button>
+            </div>
+            <div id="tasks" class="tasks"></div>
+          </div>
+        </details>
+
+        <details class="card">
+          <summary>Program Yonetimi</summary>
+          <div class="section">
+            <input id="openTarget" placeholder="ornek: Chrome veya notepad.exe" />
+            <div class="row">
+              <button id="openApp" class="secondary">Calistir</button>
+              <button id="refreshApps" class="secondary">Listele</button>
+            </div>
+            <input id="appQuery" placeholder="program ara (opsiyonel)" />
+            <select id="installedApps" size="6"></select>
+            <button id="openSelectedApp" class="success">Secili Programi Ac</button>
+          </div>
+        </details>
       </div>
 
-      <div class="card chat-card">
-        <div id="chatFeed" class="chat-feed"></div>
+      <div class="column">
+        <div class="card inspector-card">
+          <div class="inspector-head">
+            <strong>Proje Degisiklik Paneli</strong>
+            <span id="inspectorMeta">Henuz proje degisikligi yok.</span>
+          </div>
 
-        <div class="chat-actions">
-          <button id="summarizeTab" class="secondary">Aktif Sekmeyi Ozetle</button>
-          <button id="checkBridge" class="secondary">Baglanti Testi</button>
+          <div class="inspector-grid">
+            <div class="panel-block">
+              <h4>Tool Akisi</h4>
+              <div id="toolTimeline" class="timeline"></div>
+            </div>
+
+            <div class="panel-block">
+              <h4>Degisen Dosyalar</h4>
+              <div id="projectFiles" class="file-list"></div>
+            </div>
+
+            <div class="panel-block diff-block">
+              <div class="diff-head">
+                <h4 id="diffTitle">Diff Onizleme</h4>
+                <button id="clearInspector" type="button" class="secondary">Temizle</button>
+              </div>
+              <pre id="diffViewer" class="diff-viewer">
+Proje olusturma veya dosya degistirme islemlerinden sonra diff burada gorunur.
+              </pre>
+            </div>
+          </div>
         </div>
-
-        <form id="chatForm" class="chat-bar">
-          <input id="chatInput" placeholder="Ajan komutu yaz..." autocomplete="off" />
-          <button type="submit">Gonder</button>
-        </form>
       </div>
-
-      <details class="card">
-        <summary>Bridge ve Izin Ayarlari</summary>
-        <div class="section">
-          <input id="baseUrl" placeholder="http://127.0.0.1:3434" />
-          <input id="apiToken" placeholder="API Token (opsiyonel)" />
-          <div class="row">
-            <button id="saveSettings" class="secondary">Ayarlari Kaydet</button>
-            <button id="clearApprovals" class="danger">Izinleri Temizle</button>
-          </div>
-          <div id="approvalInfo" class="muted">Kayitli izin kurali: -</div>
-        </div>
-      </details>
-
-      <details class="card">
-        <summary>Gorev Planlayici</summary>
-        <div class="section">
-          <input id="taskName" placeholder="Gorev adi" />
-          <textarea id="taskPrompt" placeholder="Ajan bu promptu calistiracak"></textarea>
-          <div class="row">
-            <input id="runAt" placeholder="runAt (ISO)" />
-            <input id="intervalMs" placeholder="intervalMs" />
-          </div>
-          <div class="row">
-            <button id="createTask">Gorev Olustur</button>
-            <button id="refreshTasks" class="secondary">Yenile</button>
-          </div>
-          <div id="tasks" class="tasks"></div>
-        </div>
-      </details>
-
-      <details class="card">
-        <summary>Program Yonetimi</summary>
-        <div class="section">
-          <input id="openTarget" placeholder="ornek: Chrome veya notepad.exe" />
-          <div class="row">
-            <button id="openApp" class="secondary">Calistir</button>
-            <button id="refreshApps" class="secondary">Listele</button>
-          </div>
-          <input id="appQuery" placeholder="program ara (opsiyonel)" />
-          <select id="installedApps" size="6"></select>
-          <button id="openSelectedApp" class="success">Secili Programi Ac</button>
-        </div>
-      </details>
     </div>
 
     <script type="module" src="popup.js"></script>

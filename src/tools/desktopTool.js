@@ -1,4 +1,6 @@
 import { exec, execFile, spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { config } from "../core/config.js";
@@ -84,6 +86,96 @@ function parseArrayJson(value) {
   }
 
   return [];
+}
+
+function normalizeBaseName(value) {
+  return String(value || "desktop")
+    .trim()
+    .toLowerCase();
+}
+
+function resolveKnownBaseDirectory(baseName) {
+  const home = os.homedir();
+  const base = normalizeBaseName(baseName);
+
+  if (base === "desktop") {
+    return path.join(home, "Desktop");
+  }
+
+  if (base === "documents" || base === "document") {
+    return path.join(home, "Documents");
+  }
+
+  if (base === "downloads" || base === "download") {
+    return path.join(home, "Downloads");
+  }
+
+  if (base === "home") {
+    return home;
+  }
+
+  if (base === "temp" || base === "tmp") {
+    return os.tmpdir();
+  }
+
+  return path.join(home, "Desktop");
+}
+
+function expandHomeVariables(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  const home = os.homedir();
+
+  if (text.startsWith("~")) {
+    return path.join(home, text.slice(1));
+  }
+
+  if (process.platform === "win32") {
+    const userProfile = process.env.USERPROFILE || home;
+    return text.replace(/%USERPROFILE%/gi, userProfile);
+  }
+
+  return text;
+}
+
+function resolveDirectoryTarget(input = {}) {
+  const rawPath = String(input.path || "").trim();
+  const rawName = String(input.name || "").trim();
+  const basePath = resolveKnownBaseDirectory(input.base);
+
+  if (!rawPath && !rawName) {
+    throw new Error("desktop mkdir action requires 'name' or 'path'");
+  }
+
+  if (rawPath) {
+    const expandedPath = expandHomeVariables(rawPath);
+    if (path.isAbsolute(expandedPath)) {
+      return path.normalize(expandedPath);
+    }
+
+    const normalizedRaw = expandedPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (/^desktop(\/|$)/i.test(normalizedRaw)) {
+      const suffix = normalizedRaw.replace(/^desktop(\/|$)/i, "");
+      return path.resolve(resolveKnownBaseDirectory("desktop"), suffix || ".");
+    }
+
+    if (/^documents?(\/|$)/i.test(normalizedRaw)) {
+      const suffix = normalizedRaw.replace(/^documents?(\/|$)/i, "");
+      return path.resolve(resolveKnownBaseDirectory("documents"), suffix || ".");
+    }
+
+    if (/^downloads?(\/|$)/i.test(normalizedRaw)) {
+      const suffix = normalizedRaw.replace(/^downloads?(\/|$)/i, "");
+      return path.resolve(resolveKnownBaseDirectory("downloads"), suffix || ".");
+    }
+
+    return path.resolve(basePath, expandedPath);
+  }
+
+  return path.resolve(basePath, rawName);
 }
 
 function buildOpenCommand(target, args) {
@@ -1147,7 +1239,7 @@ async function openInstalledApp(input = {}) {
 async function runShellCommand(command, timeoutMs) {
   if (!config.desktop.allowShell) {
     throw new Error(
-      "Shell command execution is disabled. Set DESKTOP_ALLOW_SHELL=true in .env to allow full desktop shell control."
+      "Shell command execution is disabled. Set DESKTOP_ALLOW_SHELL=true in .env to allow full desktop shell control. For local folder creation use desktop action=mkdir."
     );
   }
 
@@ -1169,6 +1261,30 @@ async function runShellCommand(command, timeoutMs) {
     command,
     stdout: result.stdout || "",
     stderr: result.stderr || ""
+  };
+}
+
+async function createDirectory(input = {}) {
+  const targetPath = resolveDirectoryTarget(input);
+  const recursive = parseBooleanInput(input.recursive, true);
+
+  let existedBefore = true;
+  try {
+    const stat = await fs.stat(targetPath);
+    existedBefore = stat.isDirectory();
+  } catch {
+    existedBefore = false;
+  }
+
+  await fs.mkdir(targetPath, { recursive });
+
+  return {
+    ok: true,
+    action: "mkdir",
+    path: targetPath,
+    existedBefore,
+    created: !existedBefore,
+    base: normalizeBaseName(input.base)
   };
 }
 
@@ -1238,13 +1354,17 @@ export async function runDesktopTask(input = {}) {
     return runShellCommand(input.command || input.target, input.timeoutMs);
   }
 
+  if (action === "mkdir" || action === "create-dir") {
+    return createDirectory(input);
+  }
+
   throw new Error(`Unsupported desktop action: ${action}`);
 }
 
 export const desktopTool = {
   name: "desktop",
   description:
-    "Bilgisayardaki programlari listeler, arar ve acabilir. Input: { action: apps|installed|find|open|open-installed|shell, query?, id?, appName?, appId?, target?, refresh?, deepScan? }",
+    "Bilgisayardaki programlari listeler, arar ve acabilir; ayrica shell olmadan klasor olusturabilir. Input: { action: apps|installed|find|open|open-installed|mkdir|shell, query?, id?, appName?, appId?, target?, path?, name?, base?, refresh?, deepScan? }",
   async run(input) {
     return runDesktopTask(input);
   }
